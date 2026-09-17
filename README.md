@@ -82,8 +82,10 @@ at a `.deb`.
 GitHub Actions does all of this on every push (`.github/workflows/build-iso.yml`):
 it checks every package name against the Ubuntu archive and every Store entry
 against Flathub, builds the ISO, boots it with UEFI Secure Boot and with BIOS,
-and records screenshots and a report of what works. Pushing a tag such as
-`os-v1.0` also creates a draft release with the ISO.
+installs it onto a virtual disk and boots the installed system, and records
+screenshots and a report of what works (`tests/boot-test.sh`). The logs and
+screenshots of the latest run are on the `ci-logs` branch. Pushing a tag such
+as `os-v1.0` also creates a draft release with the ISO.
 
 ## Where things are
 

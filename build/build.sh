@@ -194,6 +194,7 @@ EOF
     # `loadfont unicode` finds this on BIOS; the signed UEFI GRUB has its own.
     mkdir -p "$IMAGE/boot/grub/fonts"
     cp "$CHROOT/usr/share/grub/unicode.pf2" "$IMAGE/boot/grub/fonts/unicode.pf2"
+    cp -a "$CHROOT/usr/share/grub/fonts-veil" "$IMAGE/boot/grub/fonts/veil"
 
     log "Squashing the system (this is the slow part)"
     mksquashfs "$CHROOT" "$IMAGE/casper/filesystem.squashfs" \

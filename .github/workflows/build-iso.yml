@@ -105,6 +105,9 @@ jobs:
           run="${run%%$'\n'*}"
           case "$GITHUB_REF" in refs/tags/*) run="" ;; esac
           echo "run=$run" >> "$GITHUB_OUTPUT"
+          # [tests: install] boots only the machines named; all of them otherwise.
+          tests="$(printf '%s\n' "$MESSAGE" | grep -o '\[tests: [a-z ]*\]' | sed 's/^\[tests: //; s/\]$//' || true)"
+          echo "tests=${tests%%$'\n'*}" >> "$GITHUB_OUTPUT"
           if [ -n "$run" ]; then echo "Booting the ISO built by run $run"; else echo "Building a new ISO"; fi
 
       - uses: actions/setup-node@v4
@@ -173,6 +176,9 @@ jobs:
       - name: Boot test
         id: boot
         shell: bash
+        timeout-minutes: 180
+        env:
+          VEIL_TESTS: ${{ steps.reuse.outputs.tests }}
         run: tests/boot-test.sh out/*.iso out/boot-test 2>&1 | tee boot-test.log
 
       - name: Summary

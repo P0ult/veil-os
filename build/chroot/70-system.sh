@@ -50,7 +50,40 @@ systemctl enable veil-boot-report.service
 
 say "installer launcher"
 "${APT[@]}" install calamares calamares-settings-ubuntu-common
+# Veil's module settings again, over any of the same name the package just
+# installed: where the two differ, Veil's are the ones that fit this image.
+cp /tmp/veil/installer/calamares/settings.conf /etc/calamares/
+cp /tmp/veil/installer/calamares/modules/*.conf /etc/calamares/modules/
 install -m 755 /tmp/veil/installer/bin/veil-installer /usr/bin/veil-installer
+install -m 755 /tmp/veil/installer/bin/calamares-logs-helper /usr/bin/calamares-logs-helper
+for helper in fixconkeys-part1 fixconkeys-part2; do
+    [ -x "/usr/libexec/$helper" ] || { echo "calamares-settings-ubuntu-common has no $helper" >&2; exit 1; }
+done
+
+# The GRUB package each kind of firmware needs, for the installer to put in
+# place offline (see /usr/lib/veil/veil-install-bootloader). The two conflict,
+# so neither can simply be installed here.
+say "boot loader packages for the installer"
+install -m 755 "$S/usr/lib/veil/veil-install-bootloader" /usr/lib/veil/
+mkdir -p /usr/lib/veil/bootloader
+(cd /usr/lib/veil/bootloader && apt-get download grub-pc grub-efi-amd64)
+ls -l /usr/lib/veil/bootloader
+# Installed offline, they can only use what the image already has: check
+# every dependency is here now rather than on someone's install.
+for deb in /usr/lib/veil/bootloader/*.deb; do
+    dpkg-deb -f "$deb" Depends | tr ',' '\n' | while read -r dep; do
+        satisfied=no
+        # "a | b" is satisfied by either.
+        for alt in $(echo "$dep" | tr '|' '\n' | sed 's/(.*)//; s/:any//' | tr -d ' '); do
+            if dpkg -s "$alt" 2>/dev/null | grep -q '^Status: install ok installed' \
+               || dpkg-query -W -f='${Provides}\n' 2>/dev/null | tr ',' '\n' | sed 's/(.*)//' | tr -d ' ' | grep -qx "$alt"; then
+                satisfied=yes
+            fi
+        done
+        [ "$satisfied" = yes ] || { echo "$(basename "$deb") needs '$dep', which the image does not have" >&2; exit 1; }
+    done
+done
+chown -R root:root /usr/lib/veil/bootloader
 install -m 644 /tmp/veil/installer/applications/veil-installer.desktop /usr/share/applications/
 # In the live session the installer offers itself at login. The installed
 # system never sees this: the installer removes the file on its way out.

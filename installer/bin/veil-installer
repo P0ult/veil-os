@@ -8,4 +8,31 @@ set -e
 # Quoted: unquoted, the semicolon would end the statement and the shell would
 # try to run "xcb" as a command.
 export QT_QPA_PLATFORM="wayland;xcb"
+
+# The automated install test (tests/boot-test.sh) marks its machine with the
+# system credential veil.test=install. There - and only there - the installer
+# runs from a copy of its settings that erases the disk without asking which
+# option to take, and fills in a test user; everything else is as shipped.
+test_mode="$(sudo -n systemd-creds --system cat veil.test 2>/dev/null || sudo -n cat /run/credentials/@system/veil.test 2>/dev/null || true)"
+if [ "$test_mode" = "install" ]; then
+    conf=/run/veil-installer-test
+    sudo rm -rf "$conf"
+    sudo mkdir -p "$conf"
+    # With a settings directory given, Calamares reads everything from it.
+    sudo cp -a /usr/share/calamares/. "$conf/"
+    sudo cp -a /etc/calamares/. "$conf/"
+    sudo sed -i '/^initialPartitioningChoice:/d' "$conf/modules/partition.conf"
+    echo 'initialPartitioningChoice: erase' | sudo tee -a "$conf/modules/partition.conf" >/dev/null
+    sudo tee -a "$conf/modules/users.conf" >/dev/null <<'EOF'
+presets:
+    fullName:
+        value: "Veil Tester"
+        editable: true
+    loginName:
+        value: "tester"
+        editable: true
+EOF
+    exec sudo -E calamares -D6 -c "$conf" "$@"
+fi
+
 exec sudo -E calamares -D6 "$@"

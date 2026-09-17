@@ -1,7 +1,8 @@
 # Veil OS, as the installer shows it.
 ---
 componentName: veil
-welcomeStyleCalamares: true
+# "Welcome to the Veil OS installer", not "the Calamares installer for".
+welcomeStyleCalamares: false
 windowExpanding: normal
 windowSize: 960px,640px
 windowPlacement: center

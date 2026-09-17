@@ -1,18 +1,21 @@
 [Unit]
 Description=Veil OS first boot: install graphics drivers for this machine
 Documentation=https://github.com/P0ult/veil-os
-After=network-online.target
-Wants=network-online.target
+# Not ordered after network-online.target: that would hold the boot for as
+# long as the network takes to come up, or to time out. The script waits for
+# the network itself.
+After=NetworkManager.service
 # Only on an installed system; the live image never runs this.
 ConditionKernelCommandLine=!boot=casper
 
 [Service]
-Type=oneshot
+# exec, not oneshot: a oneshot unit holds up the boot until it finishes, and
+# a driver download can take many minutes. This runs beside the login screen,
+# and the desktop tells the user when a restart is needed.
+Type=exec
 ExecStart=/usr/lib/veil/veil-firstboot
-# A driver download can be slow; never block the desktop waiting for it.
-TimeoutStartSec=30min
-RemainAfterExit=no
 Nice=10
+IOSchedulingClass=idle
 
 [Install]
 WantedBy=multi-user.target

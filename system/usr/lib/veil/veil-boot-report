@@ -1,6 +1,14 @@
 #!/bin/bash
-# Report, on the serial console, how far the live system got. Read by
-# tests/boot-test.sh; see veil-boot-report.service.
+# Report, on the serial console, how far the system got and what works. Read
+# by tests/boot-test.sh; see veil-boot-report.service.
+#
+# Three situations, told apart by where the system is running from and by
+# the value of the veil.test credential:
+#
+#   live session              the desktop, the apps and the image's contents
+#   live session, "install"   watches the installer the harness is driving,
+#                             and restarts the machine when it has finished
+#   installed system          the same checks, plus what installing changed
 
 say() { echo "VEIL-REPORT $*"; }
 # The report itself, kept open for checks whose own output is discarded.
@@ -8,52 +16,111 @@ exec 3>&1
 # A login prompt starting on the same port hangs it up; carry on regardless.
 trap "" HUP
 
+mode="$(systemd-creds --system cat veil.test 2>/dev/null || cat /run/credentials/@system/veil.test 2>/dev/null)"
+[ -n "$mode" ] || mode=1
+if [ -d /rofs ]; then live=yes; else live=no; fi
+if [ "$live" = yes ]; then
+    user=veil
+else
+    user="$(getent passwd 1000 | cut -d: -f1)"
+fi
+uid="$(id -u "$user" 2>/dev/null)"
+
 say "stage=graphical-target"
+say "mode=${mode} live=${live} user=${user:-none}"
 say "os=$(. /etc/os-release; echo "$PRETTY_NAME")"
 say "kernel=$(uname -r)"
 say "secureboot=$(mokutil --sb-state 2>/dev/null | head -n1 || echo unknown)"
 say "cmdline=$(cat /proc/cmdline)"
 
-# Wait for the desktop: gnome-shell running for the live user.
-for i in $(seq 1 150); do
-    if pgrep -u "$(id -u veil 2>/dev/null || echo 1000)" -x gnome-shell >/dev/null 2>&1; then
+# Wait for the desktop: gnome-shell running for the user. On an installed
+# system that is after the harness has signed in.
+desktop=no
+for i in $(seq 1 240); do
+    if [ -n "$uid" ] && pgrep -u "$uid" -x gnome-shell >/dev/null 2>&1; then
         say "stage=desktop seconds=$((i * 2))"
+        desktop=yes
         break
     fi
     sleep 2
 done
-pgrep -x gnome-shell >/dev/null || say "stage=no-desktop"
+[ "$desktop" = yes ] || say "stage=no-desktop"
 
-uid="$(id -u veil 2>/dev/null)"
+# ------------------------------------------------------------- installing
+
+if [ "$live" = yes ] && [ "$mode" = install ]; then
+    say "stage=installing"
+    log_file() {
+        ls -t /home/veil/.cache/calamares/session.log /root/.cache/calamares/session.log 2>/dev/null | head -n1
+    }
+    last=""
+    for i in $(seq 1 720); do
+        if [ -e /run/veil-install-finished ]; then
+            say "install=finished minutes=$((i * 5 / 60))"
+            break
+        fi
+        if pgrep -x calamares >/dev/null; then
+            job="$(grep -a -o 'Starting job "[^"]*"' "$(log_file)" 2>/dev/null | tail -n1)"
+            if [ -n "$job" ] && [ "$job" != "$last" ]; then say "install: ${job}"; last="$job"; fi
+        fi
+        sleep 5
+    done
+    if [ -e /run/veil-install-finished ]; then
+        # The last step unmounts the new system; give it time, then restart
+        # into it. The harness boots the disk once this machine has stopped.
+        sleep 40
+        tail -n 15 "$(log_file)" 2>/dev/null | while IFS= read -r line; do say "calamares: ${line:0:200}"; done
+        say "install=done"
+        say "done"
+        sleep 2
+        systemctl reboot
+    else
+        say "install=failed"
+        grep -a -i -E 'error|fail|warning' "$(log_file)" 2>/dev/null | tail -n 40 \
+            | while IFS= read -r line; do say "calamares: ${line:0:200}"; done
+        say "done"
+    fi
+    exit 0
+fi
+
+# --------------------------------------------------------------- checking
+
 bus="unix:path=/run/user/${uid}/bus"
 # The session's own display variables, from the user manager GNOME exports
-# them to: the live session may be Wayland or X11, depending on the graphics.
+# them to: the session may be Wayland or X11, depending on the graphics.
 live_env=(XDG_RUNTIME_DIR="/run/user/${uid}" DBUS_SESSION_BUS_ADDRESS="$bus")
-if [ -n "$uid" ]; then
+found=()
+if [ "$desktop" = yes ]; then
     for _ in $(seq 1 15); do
-        mapfile -t found < <(sudo -u veil env XDG_RUNTIME_DIR="/run/user/${uid}" DBUS_SESSION_BUS_ADDRESS="$bus" \
+        mapfile -t found < <(sudo -u "$user" env XDG_RUNTIME_DIR="/run/user/${uid}" DBUS_SESSION_BUS_ADDRESS="$bus" \
             systemctl --user show-environment 2>/dev/null \
             | grep -E '^(DISPLAY|WAYLAND_DISPLAY|XAUTHORITY|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP)=')
         printf '%s\n' "${found[@]}" | grep -qE '^(DISPLAY|WAYLAND_DISPLAY)=' && break
         sleep 2
     done
-    live_env+=("${found[@]}")
     say "session=[${found[*]}]"
 fi
-as_live() {
-    sudo -u veil env "${live_env[@]}" "$@"
+live_env+=("${found[@]}")
+as_user() {
+    sudo -u "$user" env "${live_env[@]}" "$@"
 }
 
 # Keep the screen on while the harness is taking pictures of it.
-[ -n "$uid" ] && as_live gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null
+[ "$desktop" = yes ] && as_user gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null
 # Give the shell a moment to finish loading its extensions.
 sleep 10
 
-# What the desktop is made of, as checks that can each pass or fail.
+# What the system is made of, as checks that can each pass or fail.
 check() {
     local name="$1"; shift
     if "$@" >/dev/null 2>&1; then say "check $name=ok"; else say "check $name=FAIL"; fi
 }
+installed() { dpkg -s "$1" 2>/dev/null | grep -q '^Status: install ok installed'; }
+absent() { ! installed "$1"; }
+no_strays() { [ -z "$(find / -xdev \( -nouser -o -nogroup \) -print -quit 2>/dev/null)" ]; }
+dpkg_clean() { [ -z "$(dpkg --audit 2>&1)" ]; }
+in_group() { id -nG "$user" | tr ' ' '\n' | grep -qx "$1"; }
+user_groups() { in_group sudo && in_group render && in_group video && in_group input; }
 
 browser_desktop="/usr/share/applications/$(cat /usr/lib/veil/browser-desktop-id 2>/dev/null)"
 
@@ -68,7 +135,6 @@ check veil-browser     test -f "$browser_desktop"
 check veil-store       test -f /usr/share/applications/veil-store.desktop
 check veil-appearance  test -f /usr/share/applications/veil-appearance.desktop
 check flathub          sh -c "flatpak remotes --system --columns=name | grep -qx flathub"
-check calamares        command -v calamares
 check i386-arch        sh -c "dpkg --print-foreign-architectures | grep -qx i386"
 check vulkan-i386      test -e /usr/lib/i386-linux-gnu/libvulkan.so.1
 check mesa-kisak       sh -c "apt-cache policy libgl1-mesa-dri | grep -q kisak"
@@ -76,32 +142,55 @@ check dash-to-panel    test -d /usr/share/gnome-shell/extensions/dash-to-panel@j
 check arcmenu          test -d /usr/share/gnome-shell/extensions/arcmenu@arcmenu.com
 check blur-my-shell    test -d /usr/share/gnome-shell/extensions/blur-my-shell@aunetx
 check theme-colloid    test -d /usr/share/themes/Colloid-Green-Dark
-check no-snapd         sh -c "! dpkg -l snapd 2>/dev/null | grep -q '^ii'"
+check no-snapd         absent snapd
 check os-release       grep -q '^ID=veil' /etc/os-release
 check apt-template     python3 -c "from aptsources.distro import get_distro; from aptsources.sourceslist import SourcesList; SourcesList(); get_distro()"
 check add-apt-repo     add-apt-repository --help
 check apparmor-apps    sh -c "grep -q veil-center /sys/kernel/security/apparmor/profiles && ls /etc/apparmor.d | grep -qi veil"
-say "apparmor service=$(systemctl is-active apparmor 2>&1) loaded=$(wc -l < /sys/kernel/security/apparmor/profiles 2>/dev/null) veil=[$(grep -i veil /sys/kernel/security/apparmor/profiles 2>/dev/null | tr '\n' ';')] restrict_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null) files=[$(ls /etc/apparmor.d | grep -i veil | tr '\n' ' ')]"
-journalctl -b --no-pager -o cat -u apparmor.service 2>/dev/null | tail -n 8 \
-    | while IFS= read -r line; do say "apparmor: ${line:0:200}"; done
-no_strays() { [ -z "$(find / -xdev \( -nouser -o -nogroup \) -print -quit 2>/dev/null)" ]; }
 check owners           no_strays
+check dpkg-clean       dpkg_clean
 
-# The icon the browser's launcher names, and the sizes it exists in: a name
-# with no icon shows as a generic gear on the taskbar.
+say "apparmor service=$(systemctl is-active apparmor 2>&1) loaded=$(wc -l < /sys/kernel/security/apparmor/profiles 2>/dev/null) veil=[$(grep -i veil /sys/kernel/security/apparmor/profiles 2>/dev/null | tr '\n' ';')] restrict_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)"
+
+if [ "$live" = yes ]; then
+    check calamares        command -v calamares
+    check bootloader-debs  sh -c "ls /usr/lib/veil/bootloader/grub-pc_*.deb /usr/lib/veil/bootloader/grub-efi-amd64_*.deb"
+else
+    check installed-marker   test -f /var/lib/veil/installed
+    check no-installer       absent calamares
+    check no-casper          absent casper
+    check no-installer-menu  test ! -e /etc/xdg/autostart/veil-installer.desktop
+    check apparmor-service   systemctl is-active apparmor
+    check installer-logs     test -d /var/log/installer
+    check user-groups        user_groups
+    if [ -d /sys/firmware/efi ]; then
+        check grub-package   installed grub-efi-amd64
+        check shim           installed shim-signed
+        say "efi-boot=$(efibootmgr 2>/dev/null | grep -i -E '^BootCurrent|^Boot[0-9A-F]{4}\*' | tr '\n' ';')"
+    else
+        check grub-package   installed grub-pc
+        say "grub-pc-devices=$(debconf-show grub-pc 2>/dev/null | grep install_devices: | tr -d '\n')"
+    fi
+    # First-boot driver setup runs in the background; give it a minute.
+    for _ in $(seq 1 30); do [ -f /var/lib/veil/firstboot.json ] && break; sleep 2; done
+    check firstboot-ran      test -f /var/lib/veil/firstboot.json
+    say "firstboot=$(cat /var/lib/veil/firstboot.json 2>/dev/null)"
+    say "fstab=$(grep -v '^#' /etc/fstab | awk 'NF {print $2, $3}' | tr '\n' ';')"
+fi
+
+# The icon the browser's launcher names: a name with no icon shows as a
+# generic gear on the taskbar.
 icon="$(grep -m1 '^Icon=' "$browser_desktop" 2>/dev/null | cut -d= -f2)"
-sizes="$(find /usr/share/icons/hicolor -name "${icon}.*" 2>/dev/null | cut -d/ -f6 | sort -u | tr '\n' ' ')"
-say "browser-icon=${icon} sizes=${sizes}"
 check browser-icon     test -e "/usr/share/icons/hicolor/256x256/apps/${icon}.png"
 
-if [ -n "$uid" ]; then
-    say "enabled-extensions=$(as_live gsettings get org.gnome.shell enabled-extensions 2>/dev/null)"
-    say "gtk-theme=$(as_live gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)"
+if [ "$desktop" = yes ]; then
+    say "enabled-extensions=$(as_user gsettings get org.gnome.shell enabled-extensions 2>/dev/null)"
+    say "gtk-theme=$(as_user gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)"
 
     for ext in dash-to-panel@jderose9.github.com arcmenu@arcmenu.com blur-my-shell@aunetx \
                user-theme@gnome-shell-extensions.gcampax.github.com ubuntu-appindicators@ubuntu.com \
                ding@rastersoft.com; do
-        info="$(as_live gdbus call --session --dest org.gnome.Shell.Extensions \
+        info="$(as_user gdbus call --session --dest org.gnome.Shell.Extensions \
             --object-path /org/gnome/Shell/Extensions \
             --method org.gnome.Shell.Extensions.GetExtensionInfo "$ext" 2>/dev/null)"
         state="$(grep -o "'state': <[0-9.]*>" <<<"$info" | grep -o '[0-9.]*')"
@@ -110,20 +199,20 @@ if [ -n "$uid" ]; then
         say "extension $ext state=${state:-unknown}${error:+ error=$error}"
     done
 
-    # The Electron apps actually start in the session: on Ubuntu 24.04 a
-    # missing AppArmor profile makes them exit at once, which no file check
-    # would notice. Still running when the timeout ends means it started.
     # The window class of whatever has focus, which is what the taskbar
     # matches to a launcher (X11 sessions; Wayland has no equivalent to ask).
     active_class() {
         local id
-        id="$(as_live xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | grep -o '0x[0-9a-f]*' | head -n1)"
-        [ -n "$id" ] && as_live xprop -id "$id" WM_CLASS WM_NAME 2>/dev/null | tr '\n' ' '
+        id="$(as_user xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | grep -o '0x[0-9a-f]*' | head -n1)"
+        [ -n "$id" ] && as_user xprop -id "$id" WM_CLASS WM_NAME 2>/dev/null | tr '\n' ' '
     }
+    # The Electron apps actually start in the session: on Ubuntu 24.04 a
+    # missing AppArmor profile makes them exit at once, which no file check
+    # would notice. Still running when the timeout ends means it started.
     starts() {
         local out code
         ( sleep 18; say "window while running $(basename "$1"): $(active_class)" >&3 ) &
-        out="$(as_live timeout 25 "$@" 2>&1)"
+        out="$(as_user timeout 25 "$@" 2>&1)"
         code=$?
         wait
         if [ "$code" -ne 124 ]; then
@@ -143,5 +232,8 @@ fi
 journalctl -b --no-pager -o cat _COMM=gnome-shell 2>/dev/null \
     | grep -i -E 'error|exception|failed|arcmenu|dash-to-panel|blur' \
     | tail -n 40 | while IFS= read -r line; do say "shell: ${line:0:200}"; done
+# And any unit that failed to start.
+systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' \
+    | while IFS= read -r unit; do [ -n "$unit" ] && say "failed-unit: ${unit}"; done
 
 say "done"

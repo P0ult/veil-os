@@ -5,7 +5,8 @@ Drive a running QEMU through its QMP socket.
     python3 tests/qmp.py SOCKET shot.png             # screenshot, as PNG
     python3 tests/qmp.py SOCKET --key up             # one key
     python3 tests/qmp.py SOCKET --key ctrl x         # a chord
-    python3 tests/qmp.py SOCKET --type " veil.test=1"  # text, key by key
+    python3 tests/qmp.py SOCKET --type "some text"   # text, key by key
+    python3 tests/qmp.py SOCKET --click 640 400      # a left click at a pixel
     python3 tests/qmp.py SOCKET --quit               # stop the machine
 
 QEMU writes screenshots as PPM; Pillow turns them into PNG so they can be
@@ -66,6 +67,36 @@ class Machine:
             self.keys(names)
             time.sleep(0.05)
 
+    def size(self):
+        """The screen's size, from a screendump's PPM header."""
+        ppm = os.path.join(tempfile.gettempdir(), f'veil-size-{os.getpid()}.ppm')
+        self.call('screendump', {'filename': ppm})
+        for _ in range(20):
+            if os.path.exists(ppm) and os.path.getsize(ppm) > 20:
+                break
+            time.sleep(0.1)
+        time.sleep(0.1)
+        with Image.open(ppm) as im:
+            w, h = im.size
+        os.remove(ppm)
+        return w, h
+
+    def click(self, x, y, button='left'):
+        """A click at screen pixel (x, y), through the USB tablet."""
+        w, h = self.size()
+        ax = round(int(x) * 32767 / max(1, w - 1))
+        ay = round(int(y) * 32767 / max(1, h - 1))
+        self.call('input-send-event', {'events': [
+            {'type': 'abs', 'data': {'axis': 'x', 'value': ax}},
+            {'type': 'abs', 'data': {'axis': 'y', 'value': ay}},
+        ]})
+        time.sleep(0.15)
+        for down in (True, False):
+            self.call('input-send-event', {'events': [
+                {'type': 'btn', 'data': {'down': down, 'button': button}},
+            ]})
+            time.sleep(0.08)
+
     def screenshot(self, target):
         ppm = os.path.join(tempfile.gettempdir(), f'veil-shot-{os.getpid()}.ppm')
         self.call('screendump', {'filename': ppm})
@@ -95,6 +126,8 @@ def main():
             m.keys(rest)
         elif what == '--type':
             m.type(' '.join(rest))
+        elif what == '--click':
+            m.click(rest[0], rest[1])
         else:
             m.screenshot(what)
         m.close()

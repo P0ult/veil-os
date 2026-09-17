@@ -1,0 +1,31 @@
+#!/bin/sh
+# Copy the installer's logs into the system it installed, as Ubuntu's flavours
+# do, so a problem with an installation can be looked into afterwards.
+#
+#     calamares-logs-helper /path/to/new/root
+#
+# Called by the installer's last step (shellprocess_logs.conf, from
+# calamares-settings-ubuntu-common). Ubuntu ships this script in each
+# flavour's own settings package rather than the common one Veil uses.
+
+root="${1:-}"
+[ -n "$root" ] && [ -d "$root" ] || exit 0
+
+dest="$root/var/log/installer"
+mkdir -p "$dest"
+
+for f in /root/.cache/calamares/session.log /home/*/.cache/calamares/session.log; do
+    [ -f "$f" ] && cp "$f" "$dest/calamares-session.log"
+done
+for f in /var/log/casper.log /var/log/syslog /var/log/installer/debug; do
+    [ -f "$f" ] && cp "$f" "$dest/"
+done
+cp /cdrom/.disk/info "$dest/media-info" 2>/dev/null
+
+chmod 0700 "$dest"
+chmod 0600 "$dest"/* 2>/dev/null
+
+# This is the installer's second-to-last step: everything before it worked.
+# The automated install test watches for this.
+touch /run/veil-install-finished
+exit 0

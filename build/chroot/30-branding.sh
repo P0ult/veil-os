@@ -154,21 +154,48 @@ gtheme=/boot/grub/themes/veil
 mkdir -p "$gtheme"
 cp /tmp/veil/branding/grub-theme/veil/theme.txt "$gtheme/"
 cp "$B"/grub/veil/*.png "$gtheme/"
+# The theme's typeface, beside rather than inside the theme: grub-mkconfig
+# loads every font in a theme's directory, and with Secure Boot on the signed
+# GRUB refuses font files, printing an error at every boot.
+gfonts=/boot/grub/fonts/veil
+mkdir -p "$gfonts"
 fonts=/usr/share/fonts/truetype/dejavu
-grub-mkfont -s 12 -o "$gtheme/dejavu_sans_12.pf2" "$fonts/DejaVuSans.ttf"
-grub-mkfont -s 16 -o "$gtheme/dejavu_sans_16.pf2" "$fonts/DejaVuSans.ttf"
-grub-mkfont -s 16 -o "$gtheme/dejavu_sans_bold_16.pf2" "$fonts/DejaVuSans-Bold.ttf"
-# The live image copies the theme from here.
+grub-mkfont -s 12 -o "$gfonts/dejavu_sans_12.pf2" "$fonts/DejaVuSans.ttf"
+grub-mkfont -s 16 -o "$gfonts/dejavu_sans_16.pf2" "$fonts/DejaVuSans.ttf"
+grub-mkfont -s 16 -o "$gfonts/dejavu_sans_bold_16.pf2" "$fonts/DejaVuSans-Bold.ttf"
+# The live image copies the theme and its fonts from here.
 mkdir -p /usr/share/grub/themes
-rm -rf /usr/share/grub/themes/veil
+rm -rf /usr/share/grub/themes/veil /usr/share/grub/fonts-veil
 cp -a "$gtheme" /usr/share/grub/themes/veil
+cp -a "$gfonts" /usr/share/grub/fonts-veil
+
+# The fonts, on an installed system, where GRUB may read them.
+cat > /etc/grub.d/06_veil_fonts <<'EOF'
+#!/bin/sh
+# Veil OS: the boot menu theme's typeface, loaded only where GRUB is allowed
+# to read font files. With Secure Boot on it is not, and the theme uses
+# GRUB's built-in font instead.
+set -e
+. /usr/share/grub/grub-mkconfig_lib
+dir=/boot/grub/fonts/veil
+ls "$dir"/*.pf2 >/dev/null 2>&1 || exit 0
+prepare_grub_to_access_device "$(${grub_probe:-grub-probe} --target=device "$dir")"
+echo 'if [ "$lockdown" != "y" ]; then'
+for f in "$dir"/*.pf2; do
+    echo "    loadfont (\$root)$(make_system_path_relative_to_its_root "$f")"
+done
+echo 'fi'
+EOF
+chmod 755 /etc/grub.d/06_veil_fonts
 
 mkdir -p /etc/default/grub.d
 cat > /etc/default/grub.d/60-veil.cfg <<EOF
 # Veil OS: its name in the boot menu, and its theme.
 GRUB_DISTRIBUTOR="${VEIL_OS_NAME}"
 GRUB_THEME="/boot/grub/themes/veil/theme.txt"
-GRUB_GFXMODE=auto
+# The largest common mode the firmware offers; "auto" alone settles for
+# 640x480 on many BIOS machines.
+GRUB_GFXMODE="1920x1080,1600x900,1366x768,1280x800,1280x720,1024x768,auto"
 GRUB_GFXPAYLOAD_LINUX=keep
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
 EOF

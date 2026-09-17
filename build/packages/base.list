@@ -23,7 +23,6 @@ software-properties-common
 apt-transport-https
 command-not-found
 apparmor
-mokutil
 
 # the live image and the installer's needs
 casper
@@ -42,6 +41,8 @@ grub-efi-amd64-signed
 shim-signed
 efibootmgr
 mokutil
+# grub-pc and grub-efi-amd64, installed by the installer offline, need it
+ucf
 mtools
 dosfstools
 

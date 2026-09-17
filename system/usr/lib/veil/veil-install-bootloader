@@ -1,0 +1,77 @@
+#!/bin/bash
+# The GRUB package for this machine, installed by the installer inside the
+# new system.
+#
+#     veil-install-bootloader efi|bios    before the boot loader is installed
+#     veil-install-bootloader record      after it, from the finishing step
+#
+# The live image carries GRUB's binaries for both kinds of firmware but not
+# the package that owns the boot loader on an installed system - grub-pc for
+# BIOS, grub-efi-amd64 for UEFI - because the two conflict. The build keeps a
+# copy of each in /usr/lib/veil/bootloader; this installs the right one, so
+# GRUB is kept up to date by the system's own updates afterwards.
+#
+# A failure here is reported but does not stop the installation: the
+# installer's boot loader step, which comes next, installs GRUB either way.
+
+set -u
+export DEBIAN_FRONTEND=noninteractive
+
+DIR=/usr/lib/veil/bootloader
+log() { echo "veil-install-bootloader: $*"; }
+
+install_pkg() {
+    local pkg="$1" deb=""
+    for f in "$DIR/${pkg}"_*.deb; do
+        [ -f "$f" ] && deb="$f"
+    done
+    if [ -z "$deb" ]; then
+        log "no ${pkg} package in ${DIR}"
+        return 0
+    fi
+    if dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: install ok installed'; then
+        log "${pkg} is already installed"
+        return 0
+    fi
+    log "installing $(basename "$deb")"
+    if ! dpkg -i "$deb"; then
+        # Never leave a half-configured package behind: every later apt
+        # command would stop on it.
+        log "${pkg} did not install; removing it again"
+        dpkg --remove --force-remove-reinstreq "$pkg" || true
+    fi
+    return 0
+}
+
+# Where GRUB for BIOS lives, as the stable name grub-pc's upgrades look for.
+record_bios_disk() {
+    dpkg -s grub-pc >/dev/null 2>&1 || return 0
+    local disk id=""
+    disk="$(grub-probe --target=disk /boot 2>/dev/null)" || return 0
+    for link in /dev/disk/by-id/*; do
+        case "$link" in *-part*) continue ;; esac
+        if [ "$(readlink -f "$link")" = "$disk" ]; then id="$link"; break; fi
+    done
+    [ -n "$id" ] || id="$disk"
+    log "GRUB for BIOS is on ${id}"
+    echo "grub-pc grub-pc/install_devices multiselect ${id}" | debconf-set-selections
+    echo "grub-pc grub-pc/install_devices_empty boolean false" | debconf-set-selections
+}
+
+case "${1:-}" in
+    efi)
+        # Ubuntu's signed GRUB and shim are part of the image already.
+        install_pkg grub-efi-amd64
+        ;;
+    bios)
+        install_pkg grub-pc
+        ;;
+    record)
+        record_bios_disk
+        ;;
+    *)
+        echo "usage: $0 efi|bios|record" >&2
+        exit 64
+        ;;
+esac
+exit 0
