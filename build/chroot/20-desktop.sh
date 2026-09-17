@@ -29,6 +29,12 @@ for uuid in "${GNOME_EXTENSIONS[@]}"; do
 
     if compgen -G "$dest/schemas/*.gschema.xml" > /dev/null; then
         cp "$dest"/schemas/*.gschema.xml /usr/share/glib-2.0/schemas/
+        # An extension with a schemas directory reads its settings from the
+        # compiled file in it, and refuses to start without one. Packages
+        # from extensions.gnome.org no longer carry it: GNOME compiles it
+        # when installing through its own tools, which this is not.
+        glib-compile-schemas --strict "$dest/schemas"
+        [ -f "$dest/schemas/gschemas.compiled" ] || { echo "${uuid}: schemas did not compile" >&2; exit 1; }
     fi
     chmod -R a+rX "$dest"
     jq -r '"      version \(.version), for shell \(.["shell-version"] | join(", "))"' "$dest/metadata.json" || true

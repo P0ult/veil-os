@@ -3,6 +3,8 @@
 # tests/boot-test.sh; see veil-boot-report.service.
 
 say() { echo "VEIL-REPORT $*"; }
+# The report itself, kept open for checks whose own output is discarded.
+exec 3>&1
 
 say "stage=graphical-target"
 say "os=$(. /etc/os-release; echo "$PRETTY_NAME")"
@@ -43,7 +45,7 @@ check plymouth-theme   test "$(readlink -f /usr/share/plymouth/themes/default.pl
 check wine             wine --version
 check winetricks       winetricks --version
 check steam            test -x /usr/games/steam -o -x /usr/bin/steam
-check lutris           command -v lutris
+check lutris           test -x /usr/games/lutris -o -x /usr/bin/lutris
 check libreoffice      command -v libreoffice
 check vlc              command -v vlc
 check veil-browser     test -f "$browser_desktop"
@@ -63,6 +65,9 @@ check os-release       grep -q '^ID=veil' /etc/os-release
 check apt-template     python3 -c "from aptsources.distro import get_distro; from aptsources.sourceslist import SourcesList; SourcesList(); get_distro()"
 check add-apt-repo     add-apt-repository --help
 check apparmor-apps    sh -c "grep -q veil-center /sys/kernel/security/apparmor/profiles && ls /etc/apparmor.d | grep -qi veil"
+say "apparmor service=$(systemctl is-active apparmor 2>&1) loaded=$(wc -l < /sys/kernel/security/apparmor/profiles 2>/dev/null) veil=[$(grep -i veil /sys/kernel/security/apparmor/profiles 2>/dev/null | tr '\n' ';')] restrict_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null) files=[$(ls /etc/apparmor.d | grep -i veil | tr '\n' ' ')]"
+journalctl -b --no-pager -o cat -u apparmor.service 2>/dev/null | tail -n 8 \
+    | while IFS= read -r line; do say "apparmor: ${line:0:200}"; done
 no_strays() { [ -z "$(find / -xdev \( -nouser -o -nogroup \) -print -quit 2>/dev/null)" ]; }
 check owners           no_strays
 
@@ -93,8 +98,14 @@ if [ -n "$uid" ]; then
     # missing AppArmor profile makes them exit at once, which no file check
     # would notice. Still running when the timeout ends means it started.
     starts() {
-        as_live timeout 15 "$@" --ozone-platform=wayland >/dev/null 2>&1
-        [ $? -eq 124 ]
+        local out code
+        out="$(as_live timeout 15 "$@" --ozone-platform=wayland 2>&1)"
+        code=$?
+        if [ "$code" -ne 124 ]; then
+            say "exited $code: $*" >&3
+            tail -n 6 <<<"$out" | while IFS= read -r line; do say "  | ${line:0:200}"; done >&3
+            return 1
+        fi
     }
     say "stage=apps"
     check store-starts       starts /opt/veil-center/veil-center --store

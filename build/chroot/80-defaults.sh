@@ -28,9 +28,12 @@ done
 # Dash to Panel greets every new version with an "updated" notification,
 # judged by a setting that starts at an old number - so a new user's first
 # login would open with one. Start it at the version installed.
-dtp_version="$(jq -r '.version' /usr/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com/metadata.json)"
-printf '[org/gnome/shell/extensions/dash-to-panel]\nextension-version=%s\n' "$dtp_version" \
-    > /etc/dconf/db/local.d/05-extension-versions
+# ArcMenu does the same with a setting of its own.
+ext=/usr/share/gnome-shell/extensions
+dtp_version="$(jq -r '.version' "$ext/dash-to-panel@jderose9.github.com/metadata.json")"
+arc_version="$(jq -r '.version' "$ext/arcmenu@arcmenu.com/metadata.json")"
+printf '[org/gnome/shell/extensions/dash-to-panel]\nextension-version=%s\n\n[org/gnome/shell/extensions/arcmenu]\nupdate-notifier-project-version=%s\n' \
+    "$dtp_version" "$arc_version" > /etc/dconf/db/local.d/05-extension-versions
 
 # Compiled once on its own first, because `dconf update` reports a syntax
 # error and carries on, which would leave every setting at GNOME's default

@@ -7,7 +7,9 @@
 #
 #   uefi  UEFI with Secure Boot enforced and Microsoft's keys enrolled, as on
 #         a typical PC.
-#   bios  Legacy BIOS.
+#   bios  Legacy BIOS, on an older PC chipset. GRUB and the kernel write
+#         to the serial port too (see build/iso/grub.cfg), so a machine that
+#         stops early still leaves a reason.
 #
 # Both carry the systemd credential veil.test as an SMBIOS OEM string, which
 # makes the live system report on the serial port how far it got and what
@@ -43,8 +45,13 @@ log() { printf '\n== %s\n' "$*"; }
 q() { python3 "$QMP" "$SOCK" "$@" >/dev/null 2>&1; }
 alive() { kill -0 "$PID" 2>/dev/null; }
 
-start_machine() {   # dir, then extra qemu arguments
+# The optical drive: AHCI on the modern machine, IDE on the older one.
+CD_AHCI=(-device ahci,id=ahci0 -device ide-cd,drive=cd0,bus=ahci0.0,bootindex=0)
+CD_IDE=(-device ide-cd,drive=cd0,bus=ide.1,bootindex=0)
+
+start_machine() {   # dir, name of a cd device array, then extra qemu arguments
     local dir="$1"; shift
+    local -n cd="$1"; shift
     mkdir -p "$dir"
     SOCK="$dir/qmp.sock"
     rm -f "$SOCK"
@@ -57,7 +64,7 @@ start_machine() {   # dir, then extra qemu arguments
         -drive "file=$dir/disk.qcow2,if=none,id=disk0,format=qcow2" \
         -device virtio-blk-pci,drive=disk0,bootindex=1 \
         -drive "file=$ISO,media=cdrom,if=none,id=cd0,readonly=on" \
-        -device ahci,id=ahci0 -device ide-cd,drive=cd0,bus=ahci0.0,bootindex=0 \
+        "${cd[@]}" \
         -smbios type=11,value=io.systemd.credential:veil.test=1 \
         -serial "file:$dir/serial.log" \
         -qmp "unix:$SOCK,server=on,wait=off" \
@@ -116,7 +123,7 @@ uefi() {
     fi
     mkdir -p "$dir"
     cp "$OVMF_VARS" "$dir/vars.fd"
-    start_machine "$dir" \
+    start_machine "$dir" CD_AHCI \
         -machine q35,smm=on \
         -global driver=cfi.pflash01,property=secure,value=on \
         -drive "if=pflash,format=raw,unit=0,file=$OVMF_CODE,readonly=on" \
@@ -129,7 +136,9 @@ uefi() {
 bios() {
     local dir="$OUT/bios"
     log "Legacy BIOS"
-    start_machine "$dir" -machine q35 || return 1
+    # An i440FX PC with an IDE drive: the kind of machine that still boots
+    # this way.
+    start_machine "$dir" CD_IDE -machine pc || return 1
     record "$dir" 1200
     stop_machine "$dir"
 }
