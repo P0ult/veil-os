@@ -127,6 +127,8 @@ jobs:
           sudo --preserve-env=GITHUB_TOKEN,VEIL_BROWSER_DEB_URL \
             WORK=/mnt/veil/work OUT="$PWD/out" \
             build/build.sh 2>&1 | tee build.log
+          # The build runs as root; the steps after it do not.
+          sudo chown -R "$(id -u):$(id -g)" out
           ls -la out
 
       - name: Keep the ISO for boot-only runs

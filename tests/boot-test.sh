@@ -21,7 +21,9 @@
 set -uo pipefail   # not -e: a machine that fails to boot is a result to record
 
 ISO="$(readlink -f "${1:?usage: boot-test.sh ISO [OUTDIR]}")"
-OUT="$(mkdir -p "${2:-out/boot-test}" && readlink -f "${2:-out/boot-test}")"
+OUT="${2:-out/boot-test}"
+mkdir -p "$OUT" && [ -w "$OUT" ] || { echo "Cannot write to $OUT" >&2; exit 2; }
+OUT="$(readlink -f "$OUT")"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QMP="$HERE/qmp.py"
 
