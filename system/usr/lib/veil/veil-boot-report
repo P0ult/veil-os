@@ -25,9 +25,23 @@ done
 pgrep -x gnome-shell >/dev/null || say "stage=no-desktop"
 
 uid="$(id -u veil 2>/dev/null)"
+bus="unix:path=/run/user/${uid}/bus"
+# The session's own display variables, from the user manager GNOME exports
+# them to: the live session may be Wayland or X11, depending on the graphics.
+live_env=(XDG_RUNTIME_DIR="/run/user/${uid}" DBUS_SESSION_BUS_ADDRESS="$bus")
+if [ -n "$uid" ]; then
+    for _ in $(seq 1 15); do
+        mapfile -t found < <(sudo -u veil env XDG_RUNTIME_DIR="/run/user/${uid}" DBUS_SESSION_BUS_ADDRESS="$bus" \
+            systemctl --user show-environment 2>/dev/null \
+            | grep -E '^(DISPLAY|WAYLAND_DISPLAY|XAUTHORITY|XDG_SESSION_TYPE|XDG_CURRENT_DESKTOP)=')
+        printf '%s\n' "${found[@]}" | grep -qE '^(DISPLAY|WAYLAND_DISPLAY)=' && break
+        sleep 2
+    done
+    live_env+=("${found[@]}")
+    say "session=[${found[*]}]"
+fi
 as_live() {
-    sudo -u veil env XDG_RUNTIME_DIR="/run/user/${uid}" WAYLAND_DISPLAY=wayland-0 \
-        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" "$@"
+    sudo -u veil env "${live_env[@]}" "$@"
 }
 
 # Keep the screen on while the harness is taking pictures of it.
@@ -101,7 +115,7 @@ if [ -n "$uid" ]; then
     # would notice. Still running when the timeout ends means it started.
     starts() {
         local out code
-        out="$(as_live timeout 15 "$@" --ozone-platform=wayland 2>&1)"
+        out="$(as_live timeout 15 "$@" 2>&1)"
         code=$?
         if [ "$code" -ne 124 ]; then
             say "exited $code: $*" >&3
