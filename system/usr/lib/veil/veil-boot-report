@@ -254,6 +254,13 @@ if [ "$desktop" = yes ]; then
         systemctl is-active --quiet veil-live-preload || break
         sleep 5
     done
+    # Where the first app's start-up time goes: reading it off the medium,
+    # or the work Chromium does the first time in a session.
+    say "memory=$(free -m | awk '/Mem:/ {print $2 "MB total, " $7 "MB available"}')"
+    t0=$SECONDS; cat /opt/veil-center/veil-center > /dev/null 2>&1
+    say "reread-binary=$((SECONDS - t0))s"
+    t0=$SECONDS; as_user /opt/veil-center/veil-center --version > /dev/null 2>&1
+    say "electron-version=$((SECONDS - t0))s"
     say "stage=apps"
     browser_bin="$(grep -m1 '^Exec=' "$browser_desktop" | sed 's/^Exec=//; s/"//g; s/ .*//')"
     browser_class="$(grep -m1 '^StartupWMClass=' "$browser_desktop" | cut -d= -f2)"
