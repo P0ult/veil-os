@@ -101,10 +101,11 @@ jobs:
         run: apps/veil-center/build-deb.sh
 
       - name: Build the ISO
+        shell: bash
         run: |
           sudo --preserve-env=GITHUB_TOKEN,VEIL_BROWSER_DEB_URL \
             WORK=/mnt/veil/work OUT="$PWD/out" \
-            build/build.sh
+            build/build.sh 2>&1 | tee build.log
           ls -la out
 
       - name: Boot tools
@@ -125,6 +126,51 @@ jobs:
         if: always()
         run: |
           [ -f out/boot-test/summary.md ] && cat out/boot-test/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      # A job's log can only be read by someone signed in with access to the
+      # repository; annotations can be read by anyone. The end of each log,
+      # as annotations, is what a failed build is diagnosed from.
+      - name: Where it stopped
+        if: failure()
+        shell: bash
+        run: |
+          for f in build.log out/boot-test/uefi/serial.log; do
+            [ -f "$f" ] || continue
+            sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r//g' "$f" | tail -n 90 | cut -c1-160 \
+              | python3 -c '
+          import sys
+          lines = sys.stdin.read().splitlines()
+          for i in range(0, len(lines), 30):
+              text = "\n".join(lines[i:i + 30]).replace("%", "%25").replace("\n", "%0A")
+              print(f"::error title={sys.argv[1]} ({i // 30 + 1} of 3)::{text}")
+          ' "$f"
+          done
+
+      # The same logs and the screenshots, on a branch anyone can read.
+      - name: Publish logs and screenshots
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          dir="$(mktemp -d)"
+          mkdir -p "$dir/run"
+          echo "run ${GITHUB_RUN_ID} attempt ${GITHUB_RUN_ATTEMPT} commit ${GITHUB_SHA}" > "$dir/run/RUN"
+          if [ -f build.log ]; then
+            sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r//g' build.log | tail -n 6000 > "$dir/run/build.log"
+            grep -n -i -E 'error|fail|unable|not found|cannot|!!' "$dir/run/build.log" | tail -n 300 > "$dir/run/build-errors.txt" || true
+          fi
+          if [ -d out/boot-test ]; then
+            (cd out && find boot-test \( -name '*.png' -o -name '*.log' -o -name '*.md' \) -print0 \
+              | xargs -0 -r cp --parents -t "$dir/run")
+          fi
+          cd "$dir"
+          git init -q -b ci-logs
+          git add -A
+          git -c user.name="Veil CI" -c user.email="ci@users.noreply.github.com" commit -qm "Logs for run ${GITHUB_RUN_ID}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
 
       - name: Keep screenshots and logs
         if: always()

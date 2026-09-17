@@ -22,7 +22,7 @@ echo "==> veil-center $VERSION"
 cp "$ROOT/desktop/layouts.json" data/layouts.json
 
 if [ ! -f "$ROOT/branding/out/icons/hicolor/256x256/apps/veil-store.png" ]; then
-    python3 "$ROOT/branding/generate.py"
+    python3 "$ROOT/branding/generate.py" --icons
 fi
 
 if [ -f package-lock.json ]; then
