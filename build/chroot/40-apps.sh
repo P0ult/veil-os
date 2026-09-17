@@ -65,6 +65,18 @@ if [ -n "$browser_desktop" ]; then
         apparmor_parser --skip-kernel-load --skip-cache "$profile" >/dev/null \
             || { echo "The browser's AppArmor profile ($profile) does not parse" >&2; exit 1; }
 
+        # The taskbar matches a window to its launcher by window class, and
+        # an Electron window's class is its executable's name - not the
+        # product name electron-builder writes into the launcher. Without a
+        # match, the running browser shows as a second, generic icon.
+        wm_class="$(basename "$real_bin")"
+        if grep -q '^StartupWMClass=' "$browser_desktop"; then
+            sed -i "s/^StartupWMClass=.*/StartupWMClass=${wm_class}/" "$browser_desktop"
+        else
+            sed -i "/^\[Desktop Entry\]/a StartupWMClass=${wm_class}" "$browser_desktop"
+        fi
+        say "browser window class: ${wm_class}"
+
         # The browser's icon, at the sizes icon themes look in. Its package
         # may carry only one large size, which GNOME does not find, and the
         # taskbar shows a generic gear instead. The browser's icon is the Veil

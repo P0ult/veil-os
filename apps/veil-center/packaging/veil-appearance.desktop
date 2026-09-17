@@ -9,5 +9,5 @@ Icon=veil-appearance
 Terminal=false
 Categories=Settings;DesktopSettings;GTK;
 StartupNotify=true
-StartupWMClass=Veil Appearance
+StartupWMClass=veil-appearance
 SingleMainWindow=true

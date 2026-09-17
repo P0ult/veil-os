@@ -113,10 +113,19 @@ if [ -n "$uid" ]; then
     # The Electron apps actually start in the session: on Ubuntu 24.04 a
     # missing AppArmor profile makes them exit at once, which no file check
     # would notice. Still running when the timeout ends means it started.
+    # The window class of whatever has focus, which is what the taskbar
+    # matches to a launcher (X11 sessions; Wayland has no equivalent to ask).
+    active_class() {
+        local id
+        id="$(as_live xprop -root _NET_ACTIVE_WINDOW 2>/dev/null | grep -o '0x[0-9a-f]*' | head -n1)"
+        [ -n "$id" ] && as_live xprop -id "$id" WM_CLASS WM_NAME 2>/dev/null | tr '\n' ' '
+    }
     starts() {
         local out code
-        out="$(as_live timeout 15 "$@" 2>&1)"
+        ( sleep 18; say "window while running $(basename "$1"): $(active_class)" >&3 ) &
+        out="$(as_live timeout 25 "$@" 2>&1)"
         code=$?
+        wait
         if [ "$code" -ne 124 ]; then
             say "exited $code: $*" >&3
             tail -n 6 <<<"$out" | while IFS= read -r line; do say "  | ${line:0:200}"; done >&3

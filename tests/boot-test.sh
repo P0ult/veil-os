@@ -87,7 +87,7 @@ stop_machine() {
 shot() { q "$1" && echo "  screenshot $(basename "$1")"; }
 
 # The menu, the boot animation, then pictures until the serial log says
-# `done` or time runs out: every 20 seconds until the desktop is up, every 5
+# `done` or time runs out: every 20 seconds until the desktop is up, every 4
 # after that, so the apps the report opens are caught on screen.
 record() {
     local dir="$1" limit=$(( $2 * SLOW )) n=0 next=0 every=20
@@ -101,7 +101,7 @@ record() {
             break
         fi
         if grep -aq 'VEIL-REPORT stage=desktop' "$dir/serial.log" 2>/dev/null; then
-            every=5
+            every=4
         fi
         if [ $((SECONDS - start)) -ge "$next" ]; then
             shot "$dir/boot-$(printf '%03d' "$n").png"

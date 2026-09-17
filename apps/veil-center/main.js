@@ -24,6 +24,12 @@ const MOCK = process.argv.includes('--mock') || process.env.VEIL_CENTER_MOCK ===
 
 // Separate profiles, so each mode holds its own single-instance lock.
 app.setName(MODE === 'store' ? 'Veil Store' : 'Veil Appearance');
+
+// One program, two apps: each window carries its own launcher's name, so the
+// taskbar shows the right icon and keeps the two apart.
+const DESKTOP_ID = MODE === 'store' ? 'veil-store' : 'veil-appearance';
+app.commandLine.appendSwitch('class', DESKTOP_ID);
+if (process.platform === 'linux') app.setDesktopName(`${DESKTOP_ID}.desktop`);
 app.setPath('userData', path.join(app.getPath('appData'), `veil-${MODE}`));
 
 if (!app.requestSingleInstanceLock()) {

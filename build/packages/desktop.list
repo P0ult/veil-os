@@ -73,3 +73,6 @@ qt6-gtk-platformtheme
 # accessibility
 orca
 gnome-accessibility-themes
+
+# window properties, for the boot test and for anyone debugging a launcher
+x11-utils

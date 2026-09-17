@@ -9,5 +9,5 @@ Icon=veil-store
 Terminal=false
 Categories=System;PackageManager;GTK;
 StartupNotify=true
-StartupWMClass=Veil Store
+StartupWMClass=veil-store
 SingleMainWindow=true
