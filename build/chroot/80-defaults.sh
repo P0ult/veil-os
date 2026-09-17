@@ -25,6 +25,13 @@ for f in /tmp/veil/desktop/dconf/*; do
     sed -e "s|@FAVORITES@|${favorites}|" -e "s|@PINNED@|${pinned}|" "$f" > "/etc/dconf/db/local.d/${name}"
 done
 
+# Dash to Panel greets every new version with an "updated" notification,
+# judged by a setting that starts at an old number - so a new user's first
+# login would open with one. Start it at the version installed.
+dtp_version="$(jq -r '.version' /usr/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com/metadata.json)"
+printf '[org/gnome/shell/extensions/dash-to-panel]\nextension-version=%s\n' "$dtp_version" \
+    > /etc/dconf/db/local.d/05-extension-versions
+
 # Compiled once on its own first, because `dconf update` reports a syntax
 # error and carries on, which would leave every setting at GNOME's default
 # with nothing in the log to say why. `dconf compile` fails instead.

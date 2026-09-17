@@ -3,18 +3,20 @@
 #
 #     tests/boot-test.sh out/veil-os-1.0-amd64.iso out/boot-test
 #
-# Two machines:
+# Two machines, each with an empty 40 GB disk for the installer to see:
 #
 #   uefi  UEFI with Secure Boot enforced and Microsoft's keys enrolled, as on
-#         a typical PC. The GRUB menu is photographed, then the first entry is
-#         edited to add veil.test=1, which makes the live system report on
-#         the serial port how far it got and what works (veil-boot-report).
-#   bios  Legacy BIOS. Photographed at the menu, during the boot animation and
-#         at the desktop.
+#         a typical PC.
+#   bios  Legacy BIOS.
+#
+# Both carry the systemd credential veil.test as an SMBIOS OEM string, which
+# makes the live system report on the serial port how far it got and what
+# works (system/usr/lib/veil/veil-boot-report). Nothing is typed into the boot
+# menu: each machine boots the way a person's would.
 #
 # Writes screenshots, serial logs and summary.md into the output directory,
 # and exits non-zero if the desktop did not come up or a check failed.
-# Needs qemu-system-x86, ovmf, xorriso and python3-pil; uses KVM when present.
+# Needs qemu-system-x86, qemu-utils, ovmf and python3-pil; uses KVM when present.
 
 set -uo pipefail   # not -e: a machine that fails to boot is a result to record
 
@@ -44,11 +46,17 @@ start_machine() {   # dir, then extra qemu arguments
     mkdir -p "$dir"
     SOCK="$dir/qmp.sock"
     rm -f "$SOCK"
+    qemu-img create -q -f qcow2 "$dir/disk.qcow2" 40G
     qemu-system-x86_64 "${ACCEL[@]}" \
         -m 6144 -smp 4 \
         -device virtio-vga -display none \
         -device virtio-net-pci,netdev=n0 -netdev user,id=n0 \
         -device qemu-xhci -device usb-tablet \
+        -drive "file=$dir/disk.qcow2,if=none,id=disk0,format=qcow2" \
+        -device virtio-blk-pci,drive=disk0,bootindex=1 \
+        -drive "file=$ISO,media=cdrom,if=none,id=cd0,readonly=on" \
+        -device ahci,id=ahci0 -device ide-cd,drive=cd0,bus=ahci0.0,bootindex=0 \
+        -smbios type=11,value=io.systemd.credential:veil.test=1 \
         -serial "file:$dir/serial.log" \
         -qmp "unix:$SOCK,server=on,wait=off" \
         -no-reboot \
@@ -64,20 +72,26 @@ stop_machine() {
     for _ in $(seq 1 20); do alive || break; sleep 0.5; done
     kill "$PID" 2>/dev/null
     wait "$PID" 2>/dev/null
+    rm -f "$1/disk.qcow2" "$1/vars.fd"
 }
 
 shot() { q "$1" && echo "  screenshot $(basename "$1")"; }
 
-# Photograph and wait until the serial log says `done`, or time runs out.
-# Every 20 seconds until the desktop is up, then every 5.
-watch_report() {
+# The menu, the boot animation, then pictures until the serial log says
+# `done` or time runs out: every 20 seconds until the desktop is up, every 5
+# after that, so the apps the report opens are caught on screen.
+record() {
     local dir="$1" limit=$(( $2 * SLOW )) n=0 next=0 every=20
+    sleep $((5 * SLOW));  shot "$dir/grub-menu.png"
+    sleep $((12 * SLOW)); shot "$dir/splash-1.png"
+    sleep $((6 * SLOW));  shot "$dir/splash-2.png"
+
     local start=$SECONDS
     while alive && [ $((SECONDS - start)) -lt "$limit" ]; do
-        if grep -q 'VEIL-REPORT done' "$dir/serial.log" 2>/dev/null; then
+        if grep -aq 'VEIL-REPORT done' "$dir/serial.log" 2>/dev/null; then
             break
         fi
-        if grep -q 'VEIL-REPORT stage=desktop' "$dir/serial.log" 2>/dev/null; then
+        if grep -aq 'VEIL-REPORT stage=desktop' "$dir/serial.log" 2>/dev/null; then
             every=5
         fi
         if [ $((SECONDS - start)) -ge "$next" ]; then
@@ -90,8 +104,6 @@ watch_report() {
     sleep 3
     shot "$dir/final.png"
 }
-
-# ------------------------------------------------------------------- UEFI
 
 uefi() {
     local dir="$OUT/uefi"
@@ -107,102 +119,64 @@ uefi() {
         -global driver=cfi.pflash01,property=secure,value=on \
         -drive "if=pflash,format=raw,unit=0,file=$OVMF_CODE,readonly=on" \
         -drive "if=pflash,format=raw,unit=1,file=$dir/vars.fd" \
-        -drive "file=$ISO,media=cdrom,if=none,id=cd0,readonly=on" \
-        -device ahci,id=ahci0 -device ide-cd,drive=cd0,bus=ahci0.0,bootindex=0 \
         || return 1
-
-    # Any key stops GRUB's countdown; "up" on the first entry leaves it
-    # selected. Pressed from the start, so it lands whenever the menu shows.
-    local t
-    for t in $(seq 1 $((24 * SLOW))); do
-        q --key up
-        [ "$t" -eq $((8 * SLOW)) ] && shot "$dir/grub-menu-early.png"
-        sleep 0.5
-    done
-    shot "$dir/grub-menu.png"
-
-    # Edit the first entry: its second line is the kernel's.
-    q --key e;            sleep 1
-    q --key down;         sleep 0.3
-    q --key end;          sleep 0.3
-    q --type " veil.test=1 console=tty0 console=ttyS0,115200"
-    sleep 0.5
-    shot "$dir/grub-edit.png"
-    q --key ctrl x
-
-    sleep $((6 * SLOW))
-    shot "$dir/splash-1.png"
-    sleep $((6 * SLOW))
-    shot "$dir/splash-2.png"
-
-    watch_report "$dir" 1500
-    stop_machine
+    record "$dir" 1200
+    stop_machine "$dir"
 }
-
-# ------------------------------------------------------------------- BIOS
 
 bios() {
     local dir="$OUT/bios"
     log "Legacy BIOS"
-    start_machine "$dir" \
-        -machine q35 \
-        -drive "file=$ISO,media=cdrom,if=none,id=cd0,readonly=on" \
-        -device ahci,id=ahci0 -device ide-cd,drive=cd0,bus=ahci0.0,bootindex=0 \
-        || return 1
-    sleep $((6 * SLOW))
-    shot "$dir/grub-menu.png"
-    # Let the countdown run out: the default entry is what most people boot.
-    sleep $((14 * SLOW))
-    shot "$dir/splash.png"
-    local i
-    for i in $(seq 1 12); do
-        sleep $((20 * SLOW))
-        alive || break
-        shot "$dir/boot-$(printf '%02d' "$i").png"
-    done
-    stop_machine
+    start_machine "$dir" -machine q35 || return 1
+    record "$dir" 1200
+    stop_machine "$dir"
 }
 
 # ---------------------------------------------------------------- results
 
-summarise() {
-    local report="$OUT/uefi/serial.log" summary="$OUT/summary.md" failed=0
-    {
-        echo "# Veil OS boot test"
-        echo
-        echo "ISO: \`$(basename "$ISO")\` ($(du -h "$ISO" | cut -f1))"
-        echo
-        echo '```'
-        grep -a 'VEIL-REPORT' "$report" 2>/dev/null | sed 's/^.*VEIL-REPORT //' | tr -d '\r'
-        echo '```'
-    } > "$summary"
-
+# One machine's findings; prints problems and returns non-zero if there are any.
+judge() {
+    local name="$1" report="$OUT/$1/serial.log" failed=0
+    echo
+    echo "## $name"
+    echo
+    echo '```'
+    grep -a 'VEIL-REPORT' "$report" 2>/dev/null | sed 's/^.*VEIL-REPORT //' | tr -d '\r'
+    echo '```'
     if ! grep -aq 'VEIL-REPORT stage=desktop' "$report" 2>/dev/null; then
-        echo "The desktop did not come up (see uefi/serial.log and the screenshots)." | tee -a "$summary"
+        echo "- The desktop did not come up (see $name/serial.log and the screenshots)."
         failed=1
     fi
     if ! grep -aq 'VEIL-REPORT done' "$report" 2>/dev/null; then
-        echo "The report did not finish." | tee -a "$summary"
+        echo "- The report did not finish."
         failed=1
     fi
-    if ! grep -aq 'VEIL-REPORT secureboot=SecureBoot enabled' "$report" 2>/dev/null; then
-        echo "Secure Boot was not reported as enabled." | tee -a "$summary"
+    if [ "$name" = uefi ] && ! grep -aq 'VEIL-REPORT secureboot=SecureBoot enabled' "$report" 2>/dev/null; then
+        echo "- Secure Boot was not reported as enabled."
         failed=1
     fi
-    if grep -a 'VEIL-REPORT check .*=FAIL' "$report" >/dev/null 2>&1; then
-        echo "Failed checks:" | tee -a "$summary"
-        grep -a 'VEIL-REPORT check .*=FAIL' "$report" | sed 's/^.*VEIL-REPORT /  /' | tee -a "$summary"
+    if grep -aq 'VEIL-REPORT check .*=FAIL' "$report" 2>/dev/null; then
+        echo "- Failed checks: $(grep -a 'VEIL-REPORT check .*=FAIL' "$report" | sed 's/^.*VEIL-REPORT check //; s/=FAIL.*//' | tr -d '\r' | tr '\n' ' ')"
         failed=1
     fi
-    if grep -a 'VEIL-REPORT extension ' "$report" | grep -av 'state=1' >/dev/null 2>&1; then
-        echo "Extensions not running:" | tee -a "$summary"
-        grep -a 'VEIL-REPORT extension ' "$report" | grep -av 'state=1' | sed 's/^.*VEIL-REPORT /  /' | tee -a "$summary"
+    if grep -a 'VEIL-REPORT extension ' "$report" | grep -aqv 'state=1'; then
+        echo "- Extensions not running: $(grep -a 'VEIL-REPORT extension ' "$report" | grep -av 'state=1' | sed 's/^.*VEIL-REPORT extension //' | tr -d '\r' | tr '\n' ' ')"
         failed=1
     fi
-    [ "$failed" -eq 0 ] && echo "Everything checked passed." | tee -a "$summary"
     return "$failed"
 }
 
 uefi
 bios
-summarise
+
+{
+    echo "# Veil OS boot test"
+    echo
+    echo "ISO: \`$(basename "$ISO")\` ($(du -h "$ISO" | cut -f1))"
+} > "$OUT/summary.md"
+failed=0
+judge uefi >> "$OUT/summary.md" || failed=1
+judge bios >> "$OUT/summary.md" || failed=1
+[ "$failed" -eq 0 ] && echo "Everything checked passed." >> "$OUT/summary.md"
+cat "$OUT/summary.md"
+exit "$failed"

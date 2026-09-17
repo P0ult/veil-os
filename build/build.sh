@@ -191,7 +191,9 @@ EOF
     cp -a "$CHROOT/usr/share/grub/themes/veil" "$IMAGE/boot/grub/themes/veil"
     sed "s/@VERSION@/${VEIL_OS_VERSION}/g" "$ROOT/build/iso/grub.cfg" > "$IMAGE/boot/grub/grub.cfg"
     cp "$ROOT/build/iso/loopback.cfg" "$IMAGE/boot/grub/loopback.cfg"
-    cp "$CHROOT/usr/share/grub/unicode.pf2" "$IMAGE/boot/grub/font.pf2"
+    # `loadfont unicode` finds this on BIOS; the signed UEFI GRUB has its own.
+    mkdir -p "$IMAGE/boot/grub/fonts"
+    cp "$CHROOT/usr/share/grub/unicode.pf2" "$IMAGE/boot/grub/fonts/unicode.pf2"
 
     log "Squashing the system (this is the slow part)"
     mksquashfs "$CHROOT" "$IMAGE/casper/filesystem.squashfs" \
@@ -207,27 +209,24 @@ EOF
     boot_bios
     boot_uefi
 
-    (cd "$IMAGE" && find . -type f -print0 | xargs -0 md5sum | grep -v -e 'md5sum.txt' -e 'bios.img' -e 'efiboot.img' > md5sum.txt)
+    # Less the boot images, which xorriso patches as it writes them.
+    (cd "$IMAGE" && find . -type f -print0 | xargs -0 md5sum | grep -v -e 'md5sum.txt' -e 'eltorito.img' -e 'efiboot.img' > md5sum.txt)
 }
 
-# BIOS: a standalone GRUB whose only job is to find the disk and hand over to
-# the real grub.cfg.
+# BIOS: GRUB laid out the way Ubuntu lays it out on its own ISOs - a small El
+# Torito image whose prefix is /boot/grub on the disk it started from, with
+# its modules beside it. It needs no search and no second config: it reads
+# /boot/grub/grub.cfg directly, and loads what that asks for from the disk.
 boot_bios() {
     log "BIOS boot image"
-    cat > "$WORK/bios-grub.cfg" <<'EOF'
-search --set=root --file /.disk/info
-set prefix=($root)/boot/grub
-configfile $prefix/grub.cfg
-EOF
-    grub-mkstandalone \
-        --format=i386-pc \
-        --output="$IMAGE/isolinux/core.img" \
-        --install-modules="linux16 linux normal iso9660 biosdisk memdisk search tar ls all_video gfxterm gfxmenu png font echo test configfile loopback" \
-        --modules="linux16 linux normal iso9660 biosdisk search" \
-        --locales="" \
-        --fonts="" \
-        "boot/grub/grub.cfg=$WORK/bios-grub.cfg"
-    cat /usr/lib/grub/i386-pc/cdboot.img "$IMAGE/isolinux/core.img" > "$IMAGE/isolinux/bios.img"
+    local mods="$CHROOT/usr/lib/grub/i386-pc"
+    [ -f "$mods/cdboot.img" ] || die "No BIOS GRUB in the chroot (grub-pc-bin)."
+    mkdir -p "$IMAGE/boot/grub/i386-pc"
+    cp "$mods"/*.mod "$mods"/*.lst "$IMAGE/boot/grub/i386-pc/"
+    grub-mkimage -d "$mods" -O i386-pc-eltorito -p /boot/grub \
+        -o "$IMAGE/boot/grub/i386-pc/eltorito.img" \
+        biosdisk iso9660 part_msdos part_gpt
+    cp "$mods/boot_hybrid.img" "$WORK/boot_hybrid.img"
 }
 
 # UEFI: Ubuntu's own signed shim and its CD-specific signed GRUB, so the image
@@ -271,20 +270,18 @@ stage_iso() {
             -joliet -joliet-long -rational-rock \
             -volid "$ISO_LABEL" \
             -output "$OUT/$ISO_NAME" \
-            -eltorito-boot boot/grub/bios.img \
+            -eltorito-boot boot/grub/i386-pc/eltorito.img \
                 -no-emul-boot -boot-load-size 4 -boot-info-table \
                 --eltorito-catalog boot/grub/boot.cat \
                 --grub2-boot-info \
-                --grub2-mbr /usr/lib/grub/i386-pc/boot_hybrid.img \
+                --grub2-mbr "$WORK/boot_hybrid.img" \
             -eltorito-alt-boot \
                 -e EFI/efiboot.img \
                 -no-emul-boot \
             -append_partition 2 0xef isolinux/efiboot.img \
             -m "isolinux/efiboot.img" \
-            -m "isolinux/bios.img" \
             -graft-points \
                 "/EFI/efiboot.img=isolinux/efiboot.img" \
-                "/boot/grub/bios.img=isolinux/bios.img" \
                 "."
     )
     (cd "$OUT" && sha256sum "$ISO_NAME" > "$ISO_NAME.sha256")

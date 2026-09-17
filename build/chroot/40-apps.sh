@@ -64,6 +64,20 @@ if [ -n "$browser_desktop" ]; then
         fi
         apparmor_parser --skip-kernel-load --skip-cache "$profile" >/dev/null \
             || { echo "The browser's AppArmor profile ($profile) does not parse" >&2; exit 1; }
+
+        # The browser's icon, at the sizes icon themes look in. Its package
+        # may carry only one large size, which GNOME does not find, and the
+        # taskbar shows a generic gear instead. The browser's icon is the Veil
+        # logo, which the branding step has already drawn at every size.
+        icon="$(grep -m1 '^Icon=' "$browser_desktop" | cut -d= -f2)"
+        say "browser icon '${icon}' in: $(find /usr/share/icons/hicolor -name "${icon}.*" | cut -d/ -f6 | sort -u | tr '\n' ' ')"
+        if [ -n "$icon" ] && [ "${icon#/}" = "$icon" ]; then
+            for size in 16 22 24 32 48 64 96 128 256 512; do
+                d="/usr/share/icons/hicolor/${size}x${size}/apps"
+                [ -e "$d/${icon}.png" ] || cp "$d/veil-os.png" "$d/${icon}.png"
+            done
+            gtk-update-icon-cache -q -f /usr/share/icons/hicolor
+        fi
     else
         echo "Veil Browser's desktop file names '$browser_bin', which is not an executable" >&2
         exit 1

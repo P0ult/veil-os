@@ -153,7 +153,7 @@ jobs:
           {
             set -x
             sudo apt-get update -qq
-            sudo apt-get install -y -qq qemu-system-x86 ovmf python3-pil
+            sudo apt-get install -y -qq qemu-system-x86 qemu-utils ovmf python3-pil
             ls /usr/share/OVMF/
             # Let the runner's user open /dev/kvm, where the runner has one.
             if [ -e /dev/kvm ]; then

@@ -20,11 +20,24 @@ for i in $(seq 1 150); do
 done
 pgrep -x gnome-shell >/dev/null || say "stage=no-desktop"
 
+uid="$(id -u veil 2>/dev/null)"
+as_live() {
+    sudo -u veil env XDG_RUNTIME_DIR="/run/user/${uid}" WAYLAND_DISPLAY=wayland-0 \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" "$@"
+}
+
+# Keep the screen on while the harness is taking pictures of it.
+[ -n "$uid" ] && as_live gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null
+# Give the shell a moment to finish loading its extensions.
+sleep 10
+
 # What the desktop is made of, as checks that can each pass or fail.
 check() {
     local name="$1"; shift
     if "$@" >/dev/null 2>&1; then say "check $name=ok"; else say "check $name=FAIL"; fi
 }
+
+browser_desktop="/usr/share/applications/$(cat /usr/lib/veil/browser-desktop-id 2>/dev/null)"
 
 check plymouth-theme   test "$(readlink -f /usr/share/plymouth/themes/default.plymouth)" = /usr/share/plymouth/themes/veil/veil.plymouth
 check wine             wine --version
@@ -33,7 +46,7 @@ check steam            test -x /usr/games/steam -o -x /usr/bin/steam
 check lutris           command -v lutris
 check libreoffice      command -v libreoffice
 check vlc              command -v vlc
-check veil-browser     test -f "/usr/share/applications/$(cat /usr/lib/veil/browser-desktop-id)"
+check veil-browser     test -f "$browser_desktop"
 check veil-store       test -f /usr/share/applications/veil-store.desktop
 check veil-appearance  test -f /usr/share/applications/veil-appearance.desktop
 check flathub          sh -c "flatpak remotes --system --columns=name | grep -qx flathub"
@@ -50,38 +63,49 @@ check os-release       grep -q '^ID=veil' /etc/os-release
 check apt-template     python3 -c "from aptsources.distro import get_distro; from aptsources.sourceslist import SourcesList; SourcesList(); get_distro()"
 check add-apt-repo     add-apt-repository --help
 check apparmor-apps    sh -c "grep -q veil-center /sys/kernel/security/apparmor/profiles && ls /etc/apparmor.d | grep -qi veil"
+no_strays() { [ -z "$(find / -xdev \( -nouser -o -nogroup \) -print -quit 2>/dev/null)" ]; }
+check owners           no_strays
 
-# Extensions actually enabled for the live user, as the shell sees them.
-uid="$(id -u veil 2>/dev/null)"
+# The icon the browser's launcher names, and the sizes it exists in: a name
+# with no icon shows as a generic gear on the taskbar.
+icon="$(grep -m1 '^Icon=' "$browser_desktop" 2>/dev/null | cut -d= -f2)"
+sizes="$(find /usr/share/icons/hicolor -name "${icon}.*" 2>/dev/null | cut -d/ -f6 | sort -u | tr '\n' ' ')"
+say "browser-icon=${icon} sizes=${sizes}"
+check browser-icon     test -e "/usr/share/icons/hicolor/256x256/apps/${icon}.png"
+
 if [ -n "$uid" ]; then
-    enabled="$(sudo -u veil DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
-        gsettings get org.gnome.shell enabled-extensions 2>/dev/null)"
-    say "enabled-extensions=${enabled}"
-    theme="$(sudo -u veil DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
-        gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)"
-    say "gtk-theme=${theme}"
+    say "enabled-extensions=$(as_live gsettings get org.gnome.shell enabled-extensions 2>/dev/null)"
+    say "gtk-theme=$(as_live gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)"
+
+    for ext in dash-to-panel@jderose9.github.com arcmenu@arcmenu.com blur-my-shell@aunetx \
+               user-theme@gnome-shell-extensions.gcampax.github.com ubuntu-appindicators@ubuntu.com \
+               ding@rastersoft.com; do
+        info="$(as_live gdbus call --session --dest org.gnome.Shell.Extensions \
+            --object-path /org/gnome/Shell/Extensions \
+            --method org.gnome.Shell.Extensions.GetExtensionInfo "$ext" 2>/dev/null)"
+        state="$(grep -o "'state': <[0-9.]*>" <<<"$info" | grep -o '[0-9.]*')"
+        error="$(grep -o "'error': <'[^']*'>" <<<"$info" | sed "s/^'error': <'//; s/'>$//")"
+        # 1 is running; anything else is not.
+        say "extension $ext state=${state:-unknown}${error:+ error=$error}"
+    done
 
     # The Electron apps actually start in the session: on Ubuntu 24.04 a
     # missing AppArmor profile makes them exit at once, which no file check
     # would notice. Still running when the timeout ends means it started.
     starts() {
-        sudo -u veil env XDG_RUNTIME_DIR="/run/user/${uid}" WAYLAND_DISPLAY=wayland-0             DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus"             timeout 15 "$@" --ozone-platform=wayland >/dev/null 2>&1
+        as_live timeout 15 "$@" --ozone-platform=wayland >/dev/null 2>&1
         [ $? -eq 124 ]
     }
+    say "stage=apps"
     check store-starts       starts /opt/veil-center/veil-center --store
     check appearance-starts  starts /opt/veil-center/veil-center --appearance
-    browser_bin="$(grep -m1 '^Exec=' "/usr/share/applications/$(cat /usr/lib/veil/browser-desktop-id)" | sed 's/^Exec=//; s/"//g; s/ .*//')"
+    browser_bin="$(grep -m1 '^Exec=' "$browser_desktop" | sed 's/^Exec=//; s/"//g; s/ .*//')"
     check browser-starts     starts "$browser_bin"
-
-    for ext in dash-to-panel@jderose9.github.com arcmenu@arcmenu.com blur-my-shell@aunetx; do
-        state="$(sudo -u veil DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
-            gdbus call --session --dest org.gnome.Shell.Extensions \
-            --object-path /org/gnome/Shell/Extensions \
-            --method org.gnome.Shell.Extensions.GetExtensionInfo "$ext" 2>/dev/null \
-            | grep -o "'state': <[0-9.]*>" | grep -o '[0-9.]*')"
-        # 1 is enabled; anything else is not running.
-        say "extension $ext state=${state:-unknown}"
-    done
 fi
+
+# What the shell complained about, if anything.
+journalctl -b --no-pager -o cat _COMM=gnome-shell 2>/dev/null \
+    | grep -i -E 'error|exception|failed|arcmenu|dash-to-panel|blur' \
+    | tail -n 40 | while IFS= read -r line; do say "shell: ${line:0:200}"; done
 
 say "done"
