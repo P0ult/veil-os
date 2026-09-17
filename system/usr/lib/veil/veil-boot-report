@@ -158,6 +158,7 @@ say "apparmor service=$(systemctl is-active apparmor 2>&1) loaded=$(wc -l < /sys
 if [ "$live" = yes ]; then
     check calamares        command -v calamares
     check bootloader-debs  sh -c "ls /usr/lib/veil/bootloader/grub-pc_*.deb /usr/lib/veil/bootloader/grub-efi-amd64_*.deb"
+    say "preload=$(systemctl is-active veil-live-preload) $(journalctl -u veil-live-preload -o cat --no-pager 2>/dev/null | tail -n1)"
 else
     check installed-marker   test -f /var/lib/veil/installed
     check no-installer       absent calamares

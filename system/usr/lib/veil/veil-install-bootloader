@@ -40,28 +40,22 @@ install_pkg() {
         return 0
     fi
     log "installing $(basename "$deb")"
-    # apt rather than dpkg, so a conflicting package (grub-pc, and what
-    # depends on it) is removed in the same step. --no-download: this runs
-    # offline, and everything else the package needs is in the image.
-    if ! apt-get install -y -q --no-download \
-            -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
-            "$deb"; then
-        log "apt could not install ${pkg}; trying dpkg directly"
-        # The only conflict in this image: grub-pc against grub-efi-amd64
-        # (and the reverse), with grub-gfxpayload-lists depending on grub-pc.
-        # Removed, not purged: grub-pc's purge deletes files in /boot/grub.
-        if [ "$pkg" = grub-efi-amd64 ]; then
-            dpkg --remove grub-gfxpayload-lists grub-pc || true
-        else
-            dpkg --remove grub-efi-amd64 || true
-        fi
-        dpkg -i "$deb" || log "${pkg} did not install"
-        # Never leave a half-configured package behind: every later apt
-        # command would stop on it.
-        dpkg --configure -a || true
-        if dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: .* half-'; then
-            dpkg --remove --force-remove-reinstreq "$pkg" || true
-        fi
+    # The only conflict in this image is grub-pc against grub-efi-amd64,
+    # with grub-gfxpayload-lists depending on grub-pc. dpkg will not replace
+    # one with the other by itself, and apt, offline and handed a local
+    # package, fails halfway through; so the conflicting side goes first.
+    # Removed, not purged: grub-pc's purge deletes files in /boot/grub.
+    if [ "$pkg" = grub-efi-amd64 ]; then
+        dpkg --remove grub-gfxpayload-lists grub-pc || true
+    else
+        dpkg --remove grub-efi-amd64 || true
+    fi
+    dpkg -i --force-confdef --force-confold "$deb" || log "${pkg} did not install"
+    # Never leave a half-configured package behind: every later apt command
+    # would stop on it.
+    dpkg --configure -a || true
+    if dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: .* half-'; then
+        dpkg --remove --force-remove-reinstreq "$pkg" || true
     fi
     dpkg -l 'grub*' 2>/dev/null | awk '/^ii/ {print "  installed: " $2}'
     return 0

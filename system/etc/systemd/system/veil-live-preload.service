@@ -14,9 +14,11 @@ ConditionPathExists=/rofs
 [Service]
 Type=oneshot
 ExecStart=/usr/lib/veil/veil-live-preload
-Nice=19
-IOSchedulingClass=idle
-CPUSchedulingPolicy=idle
+# Polite, but not idle: decompressing the image is processor work, and an
+# idle-scheduled reader never finishes while a desktop is starting up.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
 
 [Install]
 WantedBy=graphical.target
