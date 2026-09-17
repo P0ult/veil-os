@@ -65,11 +65,12 @@ if [ -n "$browser_desktop" ]; then
         apparmor_parser --skip-kernel-load --skip-cache "$profile" >/dev/null \
             || { echo "The browser's AppArmor profile ($profile) does not parse" >&2; exit 1; }
 
-        # The taskbar matches a window to its launcher by window class, and
-        # an Electron window's class is its executable's name - not the
-        # product name electron-builder writes into the launcher. Without a
-        # match, the running browser shows as a second, generic icon.
-        wm_class="$(basename "$real_bin")"
+        # The taskbar matches a window to its launcher by window class. An
+        # Electron window's class is its product name in lower case ("Veil"
+        # becomes "veil", as the boot test has seen), which is not what
+        # electron-builder writes into the launcher. Without a match, the
+        # running browser shows as a second, generic icon.
+        wm_class="$(grep -m1 '^Name=' "$browser_desktop" | cut -d= -f2 | tr '[:upper:]' '[:lower:]')"
         if grep -q '^StartupWMClass=' "$browser_desktop"; then
             sed -i "s/^StartupWMClass=.*/StartupWMClass=${wm_class}/" "$browser_desktop"
         else

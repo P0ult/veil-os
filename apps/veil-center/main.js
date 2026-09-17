@@ -21,6 +21,10 @@ const { app, BrowserWindow, ipcMain, nativeTheme, protocol, dialog, shell, net }
 
 const MODE = process.argv.includes('--appearance') ? 'appearance' : 'store';
 const MOCK = process.argv.includes('--mock') || process.env.VEIL_CENTER_MOCK === '1';
+// VEIL_CENTER_DEBUG=1 writes what the app is doing to its output.
+const DEBUG = process.env.VEIL_CENTER_DEBUG === '1';
+const trace = (...args) => { if (DEBUG) console.log(`[veil-center ${MODE}]`, ...args); };
+trace('starting', process.versions.electron, process.argv.slice(1).join(' '));
 
 // Separate profiles, so each mode holds its own single-instance lock.
 app.setName(MODE === 'store' ? 'Veil Store' : 'Veil Appearance');
@@ -33,6 +37,7 @@ if (process.platform === 'linux') app.setDesktopName(`${DESKTOP_ID}.desktop`);
 app.setPath('userData', path.join(app.getPath('appData'), `veil-${MODE}`));
 
 if (!app.requestSingleInstanceLock()) {
+  trace('already running; handing over to that window');
   app.quit();
   process.exit(0);
 }
@@ -187,8 +192,34 @@ function createWindow() {
     if (!url.startsWith('file:')) e.preventDefault();
   });
 
-  win.once('ready-to-show', () => win.show());
+  const wc = win.webContents;
+  wc.on('did-finish-load', () => trace('page loaded'));
+  wc.on('did-fail-load', (_e, code, desc, url) => trace('page failed to load', code, desc, url));
+  wc.on('render-process-gone', (_e, d) => {
+    trace('page process ended', d.reason, d.exitCode);
+    // A page that died leaves an empty window; start it again once.
+    if (!win.isDestroyed() && d.reason !== 'clean-exit' && !win.reloadedAfterCrash) {
+      win.reloadedAfterCrash = true;
+      wc.reload();
+    }
+  });
+  wc.on('unresponsive', () => trace('page unresponsive'));
+  wc.on('console-message', (e) => trace('page:', e.message));
+
+  let shown = false;
+  const show = (why) => {
+    if (shown || win.isDestroyed()) return;
+    shown = true;
+    trace('showing window:', why);
+    win.show();
+  };
+  win.once('ready-to-show', () => show('first paint'));
+  // A hidden window is not always told it has painted; never leave the app
+  // running with nothing on screen.
+  setTimeout(() => show('timeout'), 4000);
+
   win.loadFile(path.join(__dirname, 'ui', MODE === 'store' ? 'store.html' : 'appearance.html'));
+  trace('window created');
 }
 
 app.on('second-instance', () => {

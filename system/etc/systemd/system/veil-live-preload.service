@@ -1,0 +1,22 @@
+# Live session only: read Veil's own apps into memory in the background.
+#
+# The live system is a compressed image on a USB stick or DVD, and the first
+# start of an Electron app has to decompress a few hundred megabytes of it -
+# long enough that the Store looked as if it had not opened. Reading those
+# files once, quietly, after the desktop is up makes that first start quick.
+# An installed system reads them from its own disk and does not need this.
+
+[Unit]
+Description=Read Veil apps ahead of their first start (live session)
+After=graphical.target
+ConditionPathExists=/rofs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/veil/veil-live-preload
+Nice=19
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
+
+[Install]
+WantedBy=graphical.target

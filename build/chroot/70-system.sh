@@ -42,6 +42,11 @@ install -m 644 "$S/etc/systemd/system/veil-live-apparmor.service" /etc/systemd/s
 # Enabled always; it only runs from live media.
 systemctl enable veil-live-apparmor.service
 
+say "app preloading in the live session"
+install -m 755 "$S/usr/lib/veil/veil-live-preload" /usr/lib/veil/
+install -m 644 "$S/etc/systemd/system/veil-live-preload.service" /etc/systemd/system/
+systemctl enable veil-live-preload.service
+
 say "boot-test reporter"
 install -m 755 "$S/usr/lib/veil/veil-boot-report" /usr/lib/veil/
 install -m 644 "$S/etc/systemd/system/veil-boot-report.service" /etc/systemd/system/
