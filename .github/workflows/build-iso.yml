@@ -106,7 +106,7 @@ jobs:
           case "$GITHUB_REF" in refs/tags/*) run="" ;; esac
           echo "run=$run" >> "$GITHUB_OUTPUT"
           # [tests: install] boots only the machines named; all of them otherwise.
-          tests="$(printf '%s\n' "$MESSAGE" | grep -o '\[tests: [a-z ]*\]' | sed 's/^\[tests: //; s/\]$//' || true)"
+          tests="$(printf '%s\n' "$MESSAGE" | grep -o '\[tests: [a-z -]*\]' | sed 's/^\[tests: //; s/\]$//' || true)"
           echo "tests=${tests%%$'\n'*}" >> "$GITHUB_OUTPUT"
           if [ -n "$run" ]; then echo "Booting the ISO built by run $run"; else echo "Building a new ISO"; fi
 

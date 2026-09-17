@@ -4,7 +4,7 @@
 #     tests/boot-test.sh out/veil-os-1.0-amd64.iso out/boot-test
 #     VEIL_TESTS="install" tests/boot-test.sh ...     # only some machines
 #
-# Three machines, each with an empty 40 GB disk:
+# Four machines, each with an empty 40 GB disk:
 #
 #   uefi     UEFI with Secure Boot enforced and Microsoft's keys enrolled, as
 #            on a typical PC. The live session is checked.
@@ -14,6 +14,8 @@
 #   install  The UEFI machine again, through the installer: the harness
 #            clicks through it, the machine restarts into the installed
 #            system, the harness signs in, and that system is checked.
+#   install-bios
+#            The same on the BIOS machine.
 #
 # Each carries the systemd credential veil.test as an SMBIOS OEM string,
 # which makes the system report on the serial port how far it got and what
@@ -32,7 +34,7 @@ mkdir -p "$OUT" && [ -w "$OUT" ] || { echo "Cannot write to $OUT" >&2; exit 2; }
 OUT="$(readlink -f "$OUT")"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QMP="$HERE/qmp.py"
-TESTS="${VEIL_TESTS:-uefi bios install}"
+TESTS="${VEIL_TESTS:-uefi bios install install-bios}"
 
 OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.secboot.fd
 OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
@@ -180,13 +182,22 @@ step() {
     shot "$dir/install-$name.png"
 }
 
+# install_test NAME uefi|bios
 install_test() {
-    local dir="$OUT/install"
-    log "Installing, UEFI with Secure Boot"
+    local name="$1" firmware="$2"
+    local dir="$OUT/$name" machine live_cd
     mkdir -p "$dir"
-    cp "$OVMF_VARS" "$dir/vars.fd"
-    start_machine "$dir" live CD_AHCI install "${UEFI[@]}" \
-        -drive "if=pflash,format=raw,unit=1,file=$dir/vars.fd" || return 1
+    if [ "$firmware" = uefi ]; then
+        log "Installing, UEFI with Secure Boot"
+        cp "$OVMF_VARS" "$dir/vars.fd"
+        machine=("${UEFI[@]}" -drive "if=pflash,format=raw,unit=1,file=$dir/vars.fd")
+        live_cd=CD_AHCI
+    else
+        log "Installing, legacy BIOS"
+        machine=(-machine pc)
+        live_cd=CD_IDE
+    fi
+    start_machine "$dir" live "$live_cd" install "${machine[@]}" || return 1
 
     # The live session, with the installer opening by itself.
     local start=$SECONDS n=0
@@ -241,8 +252,7 @@ install_test() {
 
     # The installed system, from its own disk.
     log "Installed system"
-    start_machine "$dir" installed CD_NONE install "${UEFI[@]}" \
-        -drive "if=pflash,format=raw,unit=1,file=$dir/vars.fd" || return 1
+    start_machine "$dir" installed CD_NONE install "${machine[@]}" || return 1
     boot_pictures "$dir"
     # Sign in at the login screen once it is up: the one user is already
     # selected, so Enter asks for the password.
@@ -303,7 +313,8 @@ judge() {
 for t in $TESTS; do
     case "$t" in
         uefi|bios) "$t" ;;
-        install) install_test ;;
+        install) install_test install uefi ;;
+        install-bios) install_test install-bios bios ;;
         *) echo "Unknown test: $t" ;;
     esac
 done
@@ -318,19 +329,20 @@ for t in $TESTS; do
     case "$t" in
         uefi) judge "UEFI, live session" "$OUT/uefi/serial.log" yes >> "$OUT/summary.md" || failed=1 ;;
         bios) judge "BIOS, live session" "$OUT/bios/serial.log" no >> "$OUT/summary.md" || failed=1 ;;
-        install)
+        install|install-bios)
+            if [ "$t" = install ]; then kind=UEFI; uefi_flag=yes; else kind=BIOS; uefi_flag=no; fi
             {
                 echo
-                echo "## Installing"
+                echo "## Installing, $kind"
                 echo
                 echo '```'
-                grep -a 'VEIL-REPORT' "$OUT/install/live.log" 2>/dev/null | sed 's/^.*VEIL-REPORT //' | tr -d '\r'
+                grep -a 'VEIL-REPORT' "$OUT/$t/live.log" 2>/dev/null | sed 's/^.*VEIL-REPORT //' | tr -d '\r'
                 echo '```'
             } >> "$OUT/summary.md"
-            if grep -aq 'VEIL-REPORT install=done' "$OUT/install/live.log" 2>/dev/null; then
-                judge "Installed system" "$OUT/install/installed.log" yes >> "$OUT/summary.md" || failed=1
+            if grep -aq 'VEIL-REPORT install=done' "$OUT/$t/live.log" 2>/dev/null; then
+                judge "Installed system, $kind" "$OUT/$t/installed.log" "$uefi_flag" >> "$OUT/summary.md" || failed=1
             else
-                echo "- The installation did not finish (see install/*.png)." >> "$OUT/summary.md"
+                echo "- The $kind installation did not finish (see $t/*.png)." >> "$OUT/summary.md"
                 failed=1
             fi
             ;;

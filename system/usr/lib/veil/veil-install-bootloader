@@ -5,11 +5,12 @@
 #     veil-install-bootloader efi|bios    before the boot loader is installed
 #     veil-install-bootloader record      after it, from the finishing step
 #
-# The live image carries GRUB's binaries for both kinds of firmware but not
-# the package that owns the boot loader on an installed system - grub-pc for
-# BIOS, grub-efi-amd64 for UEFI - because the two conflict. The build keeps a
-# copy of each in /usr/lib/veil/bootloader; this installs the right one, so
-# GRUB is kept up to date by the system's own updates afterwards.
+# The package that owns the boot loader on an installed system is grub-pc for
+# BIOS and grub-efi-amd64 for UEFI, and the two conflict. The live image has
+# grub-pc (grub-gfxpayload-lists depends on it); the build keeps a copy of
+# each in /usr/lib/veil/bootloader, and this makes sure the right one is
+# installed - on UEFI, swapping grub-pc out - so GRUB is kept up to date by
+# the system's own updates afterwards.
 #
 # A failure here is reported but does not stop the installation: the
 # installer's boot loader step, which comes next, installs GRUB either way.
@@ -39,18 +40,36 @@ install_pkg() {
         return 0
     fi
     log "installing $(basename "$deb")"
-    if ! dpkg -i "$deb"; then
+    # apt rather than dpkg, so a conflicting package (grub-pc, and what
+    # depends on it) is removed in the same step. --no-download: this runs
+    # offline, and everything else the package needs is in the image.
+    if ! apt-get install -y -q --no-download \
+            -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
+            "$deb"; then
+        log "apt could not install ${pkg}; trying dpkg directly"
+        # The only conflict in this image: grub-pc against grub-efi-amd64
+        # (and the reverse), with grub-gfxpayload-lists depending on grub-pc.
+        # Removed, not purged: grub-pc's purge deletes files in /boot/grub.
+        if [ "$pkg" = grub-efi-amd64 ]; then
+            dpkg --remove grub-gfxpayload-lists grub-pc || true
+        else
+            dpkg --remove grub-efi-amd64 || true
+        fi
+        dpkg -i "$deb" || log "${pkg} did not install"
         # Never leave a half-configured package behind: every later apt
         # command would stop on it.
-        log "${pkg} did not install; removing it again"
-        dpkg --remove --force-remove-reinstreq "$pkg" || true
+        dpkg --configure -a || true
+        if dpkg -s "$pkg" 2>/dev/null | grep -q '^Status: .* half-'; then
+            dpkg --remove --force-remove-reinstreq "$pkg" || true
+        fi
     fi
+    dpkg -l 'grub*' 2>/dev/null | awk '/^ii/ {print "  installed: " $2}'
     return 0
 }
 
 # Where GRUB for BIOS lives, as the stable name grub-pc's upgrades look for.
 record_bios_disk() {
-    dpkg -s grub-pc >/dev/null 2>&1 || return 0
+    dpkg -s grub-pc 2>/dev/null | grep -q '^Status: install ok installed' || return 0
     local disk id=""
     disk="$(grub-probe --target=disk /boot 2>/dev/null)" || return 0
     for link in /dev/disk/by-id/*; do
