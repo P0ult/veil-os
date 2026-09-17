@@ -1,0 +1,41 @@
+{
+  "name": "veil-center",
+  "productName": "Veil Center",
+  "version": "1.0.0",
+  "description": "The Veil Store and Veil Appearance: installing apps and arranging the desktop on Veil OS.",
+  "main": "main.js",
+  "license": "GPL-3.0-or-later",
+  "author": "Veil OS <https://github.com/P0ult/veil-os>",
+  "homepage": "https://github.com/P0ult/veil-os",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "store": "electron . --store",
+    "appearance": "electron . --appearance",
+    "mock": "electron . --mock",
+    "test": "node test/run.js",
+    "pack": "electron-builder --linux dir"
+  },
+  "devDependencies": {
+    "electron": "44.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "os.veil.center",
+    "productName": "Veil Center",
+    "directories": { "output": "dist" },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**/*",
+      "ui/**/*",
+      "data/**/*",
+      "package.json"
+    ],
+    "linux": {
+      "target": ["dir"],
+      "executableName": "veil-center",
+      "category": "System"
+    }
+  }
+}

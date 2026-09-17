@@ -1,0 +1,63 @@
+#!/bin/bash
+# The part of the Veil Store that runs as root.
+#
+#     pkexec /usr/lib/veil/veil-store-helper install  PACKAGE...
+#     pkexec /usr/lib/veil/veil-store-helper remove   PACKAGE...
+#     pkexec /usr/lib/veil/veil-store-helper upgrade
+#
+# It does three things and nothing else. Package names are checked against
+# Debian's rules for what a package name can be before apt sees them, so an
+# argument can never become an option or a path.
+#
+# Progress goes to stdout in apt's own machine-readable form (APT::Status-Fd),
+# which the Store turns into a progress bar.
+
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+export LANG=C.UTF-8
+
+die() { echo "error: $*" >&2; exit 64; }
+
+valid_name() {
+    [[ "$1" =~ ^[a-z0-9][a-z0-9+.-]+(:i386|:amd64)?$ ]]
+}
+
+APT=(apt-get -y -q
+     -o APT::Status-Fd=1
+     -o Dpkg::Options::=--force-confdef
+     -o Dpkg::Options::=--force-confold
+     -o Dpkg::Use-Pty=0)
+
+action="${1:-}"
+shift || true
+
+case "$action" in
+    install|remove)
+        [ $# -ge 1 ] || die "no packages named"
+        for p in "$@"; do valid_name "$p" || die "not a package name: $p"; done
+        if [ "$action" = install ]; then
+            apt-get update -q -o APT::Status-Fd=1 || true
+            # Answer the licence questions some packages ask, rather than
+            # hanging on a prompt nobody can see.
+            for p in "$@"; do
+                [ "$p" = steam-installer ] || continue
+                debconf-set-selections <<'EOF'
+steam-installer steam/question select I AGREE
+steam-installer steam/license note
+EOF
+            done
+            "${APT[@]}" install -- "$@"
+        else
+            "${APT[@]}" remove -- "$@"
+        fi
+        ;;
+    upgrade)
+        [ $# -eq 0 ] || die "upgrade takes no arguments"
+        apt-get update -q -o APT::Status-Fd=1
+        "${APT[@]}" full-upgrade
+        ;;
+    *)
+        die "unknown action: ${action:-none} (install, remove or upgrade)"
+        ;;
+esac

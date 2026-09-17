@@ -1,0 +1,66 @@
+{
+  "_comment": "The Veil Store's shelves. Flatpak ids are checked against Flathub by tests/check-catalog.py; apt names against the archive by tests/check-packages.py.",
+
+  "windows": [
+    { "from": "Microsoft Office", "use": ["libreoffice-writer", "org.onlyoffice.desktopeditors"] },
+    { "from": "Photoshop", "use": ["org.gimp.GIMP", "org.kde.krita"] },
+    { "from": "Paint", "use": ["com.github.PintaProject.Pinta"] },
+    { "from": "Illustrator", "use": ["org.inkscape.Inkscape"] },
+    { "from": "Premiere Pro", "use": ["org.kde.kdenlive", "org.shotcut.Shotcut"] },
+    { "from": "Notepad++", "use": ["org.kde.kate"] },
+    { "from": "Visual Studio Code", "use": ["com.visualstudio.code"] },
+    { "from": "Outlook", "use": ["org.mozilla.Thunderbird"] },
+    { "from": "Microsoft Teams", "use": ["com.github.IsmaelMartinez.teams_for_linux"] },
+    { "from": "WhatsApp", "use": ["com.rtosta.zapzap"] },
+    { "from": "Epic Games Launcher", "use": ["com.heroicgameslauncher.hgl"] },
+    { "from": "Task Manager", "use": ["io.missioncenter.MissionCenter"] },
+    { "from": "Any other .exe", "use": ["com.usebottles.bottles"] }
+  ],
+
+  "featured": ["com.usebottles.bottles", "com.heroicgameslauncher.hgl", "com.discordapp.Discord", "com.spotify.Client"],
+
+  "categories": [
+    { "id": "games", "name": "Games", "apps": [
+      "steam", "lutris", "com.heroicgameslauncher.hgl", "net.davidotek.pupgui2",
+      "org.prismlauncher.PrismLauncher", "com.discordapp.Discord", "org.libretro.RetroArch",
+      "org.DolphinEmu.dolphin-emu", "net.pcsx2.PCSX2", "org.ppsspp.PPSSPP"
+    ]},
+    { "id": "windows", "name": "Windows programs", "apps": [
+      "com.usebottles.bottles", "net.davidotek.pupgui2", "com.heroicgameslauncher.hgl", "lutris"
+    ]},
+    { "id": "internet", "name": "Internet", "apps": [
+      "veil-browser", "org.mozilla.Thunderbird", "org.signal.Signal", "org.telegram.desktop",
+      "com.rtosta.zapzap", "us.zoom.Zoom", "com.github.IsmaelMartinez.teams_for_linux",
+      "org.qbittorrent.qBittorrent"
+    ]},
+    { "id": "create", "name": "Create", "apps": [
+      "org.gimp.GIMP", "org.kde.krita", "org.inkscape.Inkscape", "org.blender.Blender",
+      "org.kde.kdenlive", "org.shotcut.Shotcut", "com.obsproject.Studio",
+      "org.audacityteam.Audacity", "org.darktable.Darktable", "com.github.PintaProject.Pinta",
+      "org.freecad.FreeCAD"
+    ]},
+    { "id": "work", "name": "Work", "apps": [
+      "libreoffice-writer", "org.onlyoffice.desktopeditors", "md.obsidian.Obsidian",
+      "net.cozic.joplin_desktop", "com.visualstudio.code", "org.kde.kate",
+      "org.zotero.Zotero", "com.github.xournalpp.xournalpp", "io.github.shiftey.Desktop"
+    ]},
+    { "id": "media", "name": "Music and video", "apps": [
+      "vlc", "com.spotify.Client", "com.github.wwmm.easyeffects", "org.audacityteam.Audacity"
+    ]},
+    { "id": "system", "name": "System", "apps": [
+      "io.missioncenter.MissionCenter", "com.github.tchx84.Flatseal", "io.github.flattool.Warehouse",
+      "org.gnome.Boxes", "org.gnome.World.PikaBackup", "timeshift", "gparted", "synaptic"
+    ]}
+  ],
+
+  "local": {
+    "steam":              { "name": "Steam", "summary": "Valve's game store and library, with Proton for Windows games", "apt": "steam-installer", "desktop": "steam.desktop", "icon": "steam" },
+    "lutris":             { "name": "Lutris", "summary": "One library for games from every store and emulator", "apt": "lutris", "desktop": "net.lutris.Lutris.desktop", "icon": "lutris" },
+    "vlc":                { "name": "VLC", "summary": "Plays every video and music file there is", "apt": "vlc", "desktop": "vlc.desktop", "icon": "vlc" },
+    "libreoffice-writer": { "name": "LibreOffice", "summary": "Documents, spreadsheets and presentations that open Word, Excel and PowerPoint files", "apt": "libreoffice", "desktop": "libreoffice-startcenter.desktop", "icon": "libreoffice-main" },
+    "veil-browser":       { "name": "Veil Browser", "summary": "Private browsing with trackers and adverts blocked", "apt": "veil-browser", "desktop": "@browser", "icon": "veil-os" },
+    "timeshift":          { "name": "Timeshift", "summary": "Snapshots of the system you can roll back to", "apt": "timeshift", "desktop": "timeshift-gtk.desktop", "icon": "timeshift" },
+    "gparted":            { "name": "GParted", "summary": "Resize, create and format disk partitions", "apt": "gparted", "desktop": "gparted.desktop", "icon": "gparted" },
+    "synaptic":           { "name": "Synaptic", "summary": "Every package in the Ubuntu archive, for people who want the full list", "apt": "synaptic", "desktop": "synaptic.desktop", "icon": "synaptic" }
+  }
+}

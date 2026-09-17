@@ -1,0 +1,18 @@
+[Unit]
+Description=Veil OS first boot: install graphics drivers for this machine
+Documentation=https://github.com/P0ult/veil-os
+After=network-online.target
+Wants=network-online.target
+# Only on an installed system; the live image never runs this.
+ConditionKernelCommandLine=!boot=casper
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/veil/veil-firstboot
+# A driver download can be slow; never block the desktop waiting for it.
+TimeoutStartSec=30min
+RemainAfterExit=no
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

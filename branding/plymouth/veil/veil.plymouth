@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Veil
+Description=The Veil mark, breathing, with a ring that turns while the machine starts.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/veil
+ScriptFile=/usr/share/plymouth/themes/veil/veil.script

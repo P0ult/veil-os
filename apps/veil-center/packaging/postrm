@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = remove ] || [ "$1" = purge ]; then
+    if command -v apparmor_parser >/dev/null 2>&1 && [ -d /sys/kernel/security/apparmor ] \
+       && [ ! -e /etc/apparmor.d/veil-center ] \
+       && ! { [ -x /usr/bin/ischroot ] && /usr/bin/ischroot; }; then
+        echo "profile veil-center {}" | apparmor_parser -R 2>/dev/null || true
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database -q /usr/share/applications || true
+    fi
+fi
+
+exit 0

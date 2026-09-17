@@ -1,0 +1,105 @@
+#!/bin/bash
+# First boot of an installed Veil OS: graphics drivers.
+#
+# The right NVIDIA driver depends on the card, and installing one needs a
+# network, so neither can be settled when the ISO is built or while the
+# installer runs. This does it once the machine is up, using Ubuntu's own
+# ubuntu-drivers, which knows which driver each card needs.
+#
+# It also adds the 32-bit half of the driver. Steam and most Windows games run
+# as 32-bit processes at least in part, and without it they fall back to
+# software rendering - the classic "why is this game running at 4 fps".
+#
+# Runs as root from veil-firstboot.service. Writes what it did to
+# /var/lib/veil/firstboot.json, which the desktop reads to tell the user.
+
+set -u
+
+STATE_DIR=/var/lib/veil
+STATE="$STATE_DIR/firstboot.json"
+ATTEMPTS="$STATE_DIR/firstboot-attempts"
+MAX_ATTEMPTS=5
+
+mkdir -p "$STATE_DIR"
+
+log() { echo "veil-firstboot: $*"; }
+
+record() {
+    # status: done | nothing-to-do | waiting-for-network | failed
+    printf '{"status":"%s","driver":"%s","detail":"%s","at":"%s"}\n' \
+        "$1" "${2:-}" "${3:-}" "$(date -Is)" > "$STATE"
+    chmod 644 "$STATE"
+}
+
+finish() {
+    systemctl disable veil-firstboot.service >/dev/null 2>&1 || true
+    exit 0
+}
+
+tries=$(( $(cat "$ATTEMPTS" 2>/dev/null || echo 0) + 1 ))
+echo "$tries" > "$ATTEMPTS"
+
+# --------------------------------------------------- is there an NVIDIA card?
+
+if ! lspci -nn 2>/dev/null | grep -qi 'vga\|3d\|display' ; then
+    record "nothing-to-do" "" "no display adapter found"
+    finish
+fi
+
+if ! lspci -nn 2>/dev/null | grep -i 'vga\|3d\|display' | grep -qi nvidia; then
+    log "no NVIDIA GPU; Mesa already covers this machine"
+    record "nothing-to-do" "mesa" "AMD or Intel graphics use the Mesa drivers already installed"
+    finish
+fi
+
+if dpkg -l 'nvidia-driver-*' 2>/dev/null | grep -q '^ii'; then
+    log "an NVIDIA driver is already installed"
+    record "nothing-to-do" "nvidia" "an NVIDIA driver was already installed"
+    finish
+fi
+
+# ---------------------------------------------------------- is there a network?
+
+online=0
+for _ in $(seq 1 60); do
+    if getent hosts archive.ubuntu.com >/dev/null 2>&1; then online=1; break; fi
+    sleep 2
+done
+
+if [ "$online" -ne 1 ]; then
+    if [ "$tries" -ge "$MAX_ATTEMPTS" ]; then
+        record "failed" "" "no network after ${tries} boots - run 'sudo ubuntu-drivers install' once online"
+        finish
+    fi
+    log "no network yet; will try again next boot (${tries}/${MAX_ATTEMPTS})"
+    record "waiting-for-network" "" "connect to the internet and restart to install the NVIDIA driver"
+    exit 0
+fi
+
+# -------------------------------------------------------------------- install
+
+log "installing the recommended NVIDIA driver"
+apt-get update -q || true
+
+recommended="$(ubuntu-drivers devices 2>/dev/null | awk '/recommended/ {print $3; exit}')"
+log "ubuntu-drivers recommends: ${recommended:-nothing}"
+
+if ! DEBIAN_FRONTEND=noninteractive ubuntu-drivers install; then
+    record "failed" "${recommended}" "ubuntu-drivers could not install a driver"
+    [ "$tries" -ge "$MAX_ATTEMPTS" ] && finish
+    exit 0
+fi
+
+# The driver's major version, from whichever nvidia-driver-NNN is now installed.
+version="$(dpkg -l 'nvidia-driver-*' 2>/dev/null | awk '/^ii/ {print $2}' \
+    | sed -n 's/^nvidia-driver-\([0-9]\+\).*/\1/p' | sort -n | tail -n1)"
+
+if [ -n "$version" ]; then
+    log "adding 32-bit libraries for driver ${version}"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q "libnvidia-gl-${version}:i386" || \
+        log "32-bit libraries for ${version} were not available"
+fi
+
+record "done" "nvidia-driver-${version:-unknown}" "restart to start using it"
+log "done; a restart is needed"
+finish

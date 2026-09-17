@@ -1,0 +1,201 @@
+{
+  "_comment": [
+    "Desktop layouts. One file, read by two things: Veil Appearance, which applies",
+    "a layout when it is chosen, and the build, which writes the default one into",
+    "the system dconf database. Keeping both on the same definition is what stops",
+    "the layout a new user gets from drifting away from the one Appearance calls",
+    "by the same name.",
+    "",
+    "Each layout lists extensions to enable and disable, plain settings as",
+    "[schema, key, GVariant text], and Dash to Panel's per-monitor settings, which",
+    "are written for monitor indexes 0-5 so every screen gets the same layout.",
+    "Keys and values were checked against the schemas of the installed versions."
+  ],
+
+  "default": "classic",
+
+  "elements": {
+    "classic": [
+      { "element": "showAppsButton",   "visible": false, "position": "stackedTL" },
+      { "element": "activitiesButton", "visible": false, "position": "stackedTL" },
+      { "element": "leftBox",          "visible": true,  "position": "stackedTL" },
+      { "element": "taskbar",          "visible": true,  "position": "stackedTL" },
+      { "element": "centerBox",        "visible": true,  "position": "stackedBR" },
+      { "element": "rightBox",         "visible": true,  "position": "stackedBR" },
+      { "element": "systemMenu",       "visible": true,  "position": "stackedBR" },
+      { "element": "dateMenu",         "visible": true,  "position": "stackedBR" },
+      { "element": "desktopButton",    "visible": true,  "position": "stackedBR" }
+    ],
+    "centered": [
+      { "element": "showAppsButton",   "visible": false, "position": "stackedTL" },
+      { "element": "activitiesButton", "visible": false, "position": "stackedTL" },
+      { "element": "leftBox",          "visible": true,  "position": "centerMonitor" },
+      { "element": "taskbar",          "visible": true,  "position": "centerMonitor" },
+      { "element": "centerBox",        "visible": true,  "position": "stackedBR" },
+      { "element": "rightBox",         "visible": true,  "position": "stackedBR" },
+      { "element": "systemMenu",       "visible": true,  "position": "stackedBR" },
+      { "element": "dateMenu",         "visible": true,  "position": "stackedBR" },
+      { "element": "desktopButton",    "visible": true,  "position": "stackedBR" }
+    ],
+    "dock": [
+      { "element": "showAppsButton",   "visible": true,  "position": "stackedBR" },
+      { "element": "activitiesButton", "visible": false, "position": "stackedTL" },
+      { "element": "leftBox",          "visible": false, "position": "stackedTL" },
+      { "element": "taskbar",          "visible": true,  "position": "centerMonitor" },
+      { "element": "centerBox",        "visible": false, "position": "stackedBR" },
+      { "element": "rightBox",         "visible": false, "position": "stackedBR" },
+      { "element": "systemMenu",       "visible": false, "position": "stackedBR" },
+      { "element": "dateMenu",         "visible": false, "position": "stackedBR" },
+      { "element": "desktopButton",    "visible": false, "position": "stackedBR" }
+    ]
+  },
+
+  "layouts": {
+    "classic": {
+      "name": "Classic",
+      "description": "A taskbar along the bottom and a start menu on the left, the way Windows 10 lays it out.",
+      "preview": "classic",
+      "enable": ["dash-to-panel@jderose9.github.com", "arcmenu@arcmenu.com"],
+      "disable": [],
+      "settings": [
+        ["org.gnome.shell.extensions.dash-to-panel", "stockgs-keep-top-panel", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-position", "'BOTTOM'"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-size", "48"],
+        ["org.gnome.shell.extensions.dash-to-panel", "intellihide", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "global-border-radius", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-side-margins", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-top-bottom-margins", "0"],
+        ["org.gnome.shell.extensions.arcmenu", "menu-layout", "'windows'"],
+        ["org.gnome.shell.extensions.arcmenu", "position-in-panel", "'Left'"],
+        ["org.gnome.desktop.wm.preferences", "button-layout", "'appmenu:minimize,maximize,close'"]
+      ],
+      "perMonitor": {
+        "panel-element-positions": "@classic",
+        "panel-lengths": 100,
+        "panel-anchors": "MIDDLE"
+      }
+    },
+
+    "modern": {
+      "name": "Modern",
+      "description": "The start button and your apps together in the middle of the taskbar, like Windows 11.",
+      "preview": "modern",
+      "enable": ["dash-to-panel@jderose9.github.com", "arcmenu@arcmenu.com"],
+      "disable": [],
+      "settings": [
+        ["org.gnome.shell.extensions.dash-to-panel", "stockgs-keep-top-panel", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-position", "'BOTTOM'"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-size", "48"],
+        ["org.gnome.shell.extensions.dash-to-panel", "intellihide", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "global-border-radius", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-side-margins", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-top-bottom-margins", "0"],
+        ["org.gnome.shell.extensions.arcmenu", "menu-layout", "'11'"],
+        ["org.gnome.shell.extensions.arcmenu", "position-in-panel", "'Left'"],
+        ["org.gnome.desktop.wm.preferences", "button-layout", "'appmenu:minimize,maximize,close'"]
+      ],
+      "perMonitor": {
+        "panel-element-positions": "@centered",
+        "panel-lengths": 100,
+        "panel-anchors": "MIDDLE"
+      }
+    },
+
+    "dock": {
+      "name": "Dock",
+      "description": "A bar across the top and a floating dock of apps along the bottom, the way a Mac arranges things.",
+      "preview": "dock",
+      "enable": ["dash-to-panel@jderose9.github.com"],
+      "disable": ["arcmenu@arcmenu.com"],
+      "settings": [
+        ["org.gnome.shell.extensions.dash-to-panel", "stockgs-keep-top-panel", "true"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-position", "'BOTTOM'"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-size", "56"],
+        ["org.gnome.shell.extensions.dash-to-panel", "intellihide", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "global-border-radius", "5"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-side-margins", "8"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-top-bottom-margins", "8"],
+        ["org.gnome.desktop.wm.preferences", "button-layout", "'close,minimize,maximize:appmenu'"]
+      ],
+      "perMonitor": {
+        "panel-element-positions": "@dock",
+        "panel-lengths": -1,
+        "panel-anchors": "MIDDLE"
+      }
+    },
+
+    "traditional": {
+      "name": "Traditional",
+      "description": "A bottom panel with a categorised menu, the layout Linux Mint made familiar.",
+      "preview": "traditional",
+      "enable": ["dash-to-panel@jderose9.github.com", "arcmenu@arcmenu.com"],
+      "disable": [],
+      "settings": [
+        ["org.gnome.shell.extensions.dash-to-panel", "stockgs-keep-top-panel", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-position", "'BOTTOM'"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-size", "40"],
+        ["org.gnome.shell.extensions.dash-to-panel", "intellihide", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "global-border-radius", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-side-margins", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-top-bottom-margins", "0"],
+        ["org.gnome.shell.extensions.arcmenu", "menu-layout", "'mint'"],
+        ["org.gnome.shell.extensions.arcmenu", "position-in-panel", "'Left'"],
+        ["org.gnome.desktop.wm.preferences", "button-layout", "'appmenu:minimize,maximize,close'"]
+      ],
+      "perMonitor": {
+        "panel-element-positions": "@classic",
+        "panel-lengths": 100,
+        "panel-anchors": "MIDDLE"
+      }
+    },
+
+    "touch": {
+      "name": "Touch",
+      "description": "A larger taskbar and a full-screen launcher, easier to use with a finger than a mouse.",
+      "preview": "touch",
+      "enable": ["dash-to-panel@jderose9.github.com", "arcmenu@arcmenu.com"],
+      "disable": [],
+      "settings": [
+        ["org.gnome.shell.extensions.dash-to-panel", "stockgs-keep-top-panel", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-position", "'BOTTOM'"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-size", "64"],
+        ["org.gnome.shell.extensions.dash-to-panel", "intellihide", "false"],
+        ["org.gnome.shell.extensions.dash-to-panel", "global-border-radius", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-side-margins", "0"],
+        ["org.gnome.shell.extensions.dash-to-panel", "panel-top-bottom-margins", "0"],
+        ["org.gnome.shell.extensions.arcmenu", "menu-layout", "'chromebook'"],
+        ["org.gnome.shell.extensions.arcmenu", "position-in-panel", "'Left'"],
+        ["org.gnome.desktop.wm.preferences", "button-layout", "'appmenu:minimize,maximize,close'"]
+      ],
+      "perMonitor": {
+        "panel-element-positions": "@centered",
+        "panel-lengths": 100,
+        "panel-anchors": "MIDDLE"
+      }
+    },
+
+    "gnome": {
+      "name": "GNOME",
+      "description": "GNOME as its designers intended: a top bar, and everything else in the Activities overview.",
+      "preview": "gnome",
+      "enable": [],
+      "disable": ["dash-to-panel@jderose9.github.com", "arcmenu@arcmenu.com"],
+      "settings": [
+        ["org.gnome.desktop.wm.preferences", "button-layout", "'appmenu:minimize,maximize,close'"]
+      ],
+      "perMonitor": {}
+    }
+  },
+
+  "accents": {
+    "green":  { "name": "Veil",   "theme": "Colloid-Green",  "folders": "green",  "colour": "#7dd3a0" },
+    "teal":   { "name": "Teal",   "theme": "Colloid-Teal",   "folders": "teal",   "colour": "#4db6ac" },
+    "blue":   { "name": "Blue",   "theme": "Colloid",        "folders": "blue",   "colour": "#5b9bf8" },
+    "purple": { "name": "Purple", "theme": "Colloid-Purple", "folders": "violet", "colour": "#ab47bc" },
+    "pink":   { "name": "Pink",   "theme": "Colloid-Pink",   "folders": "pink",   "colour": "#ec407a" },
+    "red":    { "name": "Red",    "theme": "Colloid-Red",    "folders": "red",    "colour": "#ef5350" },
+    "orange": { "name": "Orange", "theme": "Colloid-Orange", "folders": "orange", "colour": "#ffa726" },
+    "yellow": { "name": "Yellow", "theme": "Colloid-Yellow", "folders": "yellow", "colour": "#ffca28" },
+    "grey":   { "name": "Grey",   "theme": "Colloid-Grey",   "folders": "grey",   "colour": "#9e9e9e" }
+  }
+}

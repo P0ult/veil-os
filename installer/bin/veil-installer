@@ -1,0 +1,11 @@
+#!/bin/bash
+# Start the installer from the live session.
+#
+# Calamares has to run as root. The live user has passwordless sudo, so this
+# asks nothing; on an installed system the launcher is removed and this file
+# with it.
+set -e
+# Quoted: unquoted, the semicolon would end the statement and the shell would
+# try to run "xcb" as a command.
+export QT_QPA_PLATFORM="wayland;xcb"
+exec sudo -E calamares -D6 "$@"

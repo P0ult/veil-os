@@ -1,0 +1,4 @@
+# Everything here runs on Linux: shell scripts, systemd units and config files
+# break with Windows line endings.
+* text=auto eol=lf
+*.png binary

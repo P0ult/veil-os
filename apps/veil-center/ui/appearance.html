@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en" data-scheme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: veil-local: veil-icon:; style-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Veil Appearance</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="appearance.css">
+</head>
+<body>
+  <main class="wrap" id="main">
+    <header class="stage">
+      <h1>Appearance</h1>
+      <p class="muted" id="stage-caption">Changes apply as you make them.</p>
+      <div class="preview" id="preview" aria-hidden="true"></div>
+      <div class="now" aria-live="polite">
+        <h3 id="now-name"></h3>
+        <p class="muted" id="now-desc"></p>
+      </div>
+    </header>
+
+    <div class="controls">
+    <section class="group" aria-labelledby="g-layout">
+      <h2 id="g-layout">Layout</h2>
+      <div class="layouts" id="layouts" role="radiogroup" aria-labelledby="g-layout"></div>
+    </section>
+
+    <section class="group" aria-labelledby="g-colour">
+      <h2 id="g-colour">Colour</h2>
+      <div class="rows">
+        <div class="line">
+          <div class="label"><span>Accent</span><span class="value" id="accent-name"></span></div>
+          <div class="swatches" id="swatches" role="radiogroup" aria-label="Accent colour"></div>
+        </div>
+        <div class="line">
+          <div class="label"><span>Mode</span></div>
+          <div class="seg" id="scheme">
+            <button data-value="dark" aria-pressed="false">Dark</button>
+            <button data-value="light" aria-pressed="false">Light</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="group" aria-labelledby="g-wallpaper">
+      <h2 id="g-wallpaper">Wallpaper</h2>
+      <div class="walls" id="walls" role="radiogroup" aria-labelledby="g-wallpaper"></div>
+    </section>
+
+    <section class="group" aria-labelledby="g-taskbar" id="taskbar-group">
+      <h2 id="g-taskbar">Taskbar</h2>
+      <p class="muted note" id="taskbar-none" hidden>The GNOME layout has no taskbar. Pick another layout to change these.</p>
+      <div class="rows" id="taskbar-rows">
+        <div class="line">
+          <div class="label"><span>Position</span></div>
+          <div class="seg" id="position">
+            <button data-value="BOTTOM" aria-pressed="false">Bottom</button>
+            <button data-value="TOP" aria-pressed="false">Top</button>
+            <button data-value="LEFT" aria-pressed="false">Left</button>
+            <button data-value="RIGHT" aria-pressed="false">Right</button>
+          </div>
+        </div>
+        <div class="line">
+          <label class="label" for="size"><span>Size</span><span class="value" id="size-value"></span></label>
+          <input type="range" id="size" min="32" max="80" step="4">
+        </div>
+        <div class="line">
+          <label class="label" for="opacity"><span>Opacity</span><span class="value" id="opacity-value"></span></label>
+          <input type="range" id="opacity" min="0" max="100" step="5">
+        </div>
+        <div class="line">
+          <label class="label" for="blur"><span>Frosted glass</span><span class="value" id="blur-value"></span></label>
+          <input type="range" id="blur" min="0" max="100" step="5">
+        </div>
+      </div>
+    </section>
+
+    <section class="group" aria-labelledby="g-text">
+      <h2 id="g-text">Text</h2>
+      <div class="rows">
+        <div class="line">
+          <label class="label" for="font"><span>Typeface</span></label>
+          <div class="pair">
+            <select id="font"></select>
+            <select id="font-size" aria-label="Size in points"></select>
+          </div>
+        </div>
+        <div class="line">
+          <div class="label"><span>Scale</span><span class="value">For everything on screen</span></div>
+          <div class="seg" id="scale">
+            <button data-value="0.9" aria-pressed="false">90%</button>
+            <button data-value="1" aria-pressed="false">100%</button>
+            <button data-value="1.1" aria-pressed="false">110%</button>
+            <button data-value="1.25" aria-pressed="false">125%</button>
+            <button data-value="1.5" aria-pressed="false">150%</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="group" aria-labelledby="g-pointer">
+      <h2 id="g-pointer">Pointer</h2>
+      <div class="rows">
+        <div class="line">
+          <label class="label" for="cursor"><span>Style</span></label>
+          <select id="cursor"></select>
+        </div>
+        <div class="line">
+          <div class="label"><span>Size</span></div>
+          <div class="seg" id="cursor-size">
+            <button data-value="24" aria-pressed="false">Normal</button>
+            <button data-value="32" aria-pressed="false">Large</button>
+            <button data-value="48" aria-pressed="false">Larger</button>
+            <button data-value="64" aria-pressed="false">Largest</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="group" aria-labelledby="g-windows">
+      <h2 id="g-windows">Windows</h2>
+      <div class="rows">
+        <div class="line">
+          <div class="label"><span>Title bar buttons</span></div>
+          <div class="seg" id="buttons">
+            <button data-value="left" aria-pressed="false">Left</button>
+            <button data-value="right" aria-pressed="false">Right</button>
+          </div>
+        </div>
+        <div class="line">
+          <div class="label" id="anim-label"><span>Animations</span><span class="value">Turn off for a faster, calmer desktop</span></div>
+          <button class="switch" id="animations" role="switch" aria-checked="false" aria-labelledby="anim-label"></button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot" id="foot">
+      <button class="btn quiet" id="reset">Restore Veil's look</button>
+    </footer>
+    </div>
+  </main>
+
+  <script src="common.js"></script>
+  <script src="preview.js"></script>
+  <script src="appearance.js"></script>
+</body>
+</html>

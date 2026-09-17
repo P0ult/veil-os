@@ -1,0 +1,10 @@
+# Running Windows programs. Wine itself comes from WineHQ's repository and is
+# installed in its own step; these are what surrounds it.
+
+cabextract
+zenity
+unshield
+fonts-wine
+winbind
+libvulkan1
+libvulkan1:i386

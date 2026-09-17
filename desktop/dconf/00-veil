@@ -1,0 +1,167 @@
+# Veil OS desktop defaults.
+#
+# System defaults, not locks: every one of these can be changed by the user,
+# and Veil Appearance changes most of them. The layout is the Windows-like one
+# Zorin OS ships by default - a taskbar along the bottom, a start menu on the
+# left - because that is what someone arriving from Windows expects to find.
+#
+# The keys for the extensions were checked against the schemas in the exact
+# versions this image installs, and the UUIDs against the packages: Ubuntu's
+# AppIndicator extension is ubuntu-appindicators@ubuntu.com, not the upstream
+# appindicatorsupport@rgcjonas.gmail.com, and enabling the upstream name
+# would enable nothing.
+
+[org/gnome/shell]
+enabled-extensions=['dash-to-panel@jderose9.github.com', 'arcmenu@arcmenu.com', 'blur-my-shell@aunetx', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'ubuntu-appindicators@ubuntu.com', 'ding@rastersoft.com']
+disable-user-extensions=false
+favorite-apps=@FAVORITES@
+welcome-dialog-last-shown-version='999'
+
+[org/gnome/shell/extensions/user-theme]
+name='Colloid-Green-Dark'
+
+[org/gnome/desktop/interface]
+gtk-theme='Colloid-Green-Dark'
+icon-theme='Papirus-Dark'
+cursor-theme='Bibata-Modern-Ice'
+cursor-size=24
+color-scheme='prefer-dark'
+font-name='Inter 11'
+document-font-name='Inter 11'
+monospace-font-name='JetBrains Mono 11'
+font-antialiasing='rgba'
+font-hinting='slight'
+enable-hot-corners=false
+clock-show-weekday=true
+clock-format='24h'
+show-battery-percentage=true
+enable-animations=true
+
+[org/gnome/desktop/wm/preferences]
+button-layout='appmenu:minimize,maximize,close'
+titlebar-font='Inter Semi-Bold 11'
+action-double-click-titlebar='toggle-maximize'
+
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/veil/veil-mark-light.png'
+picture-uri-dark='file:///usr/share/backgrounds/veil/veil-aurora.png'
+picture-options='zoom'
+primary-color='#0b0e13'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///usr/share/backgrounds/veil/veil-night.png'
+picture-options='zoom'
+primary-color='#0b0e13'
+
+[org/gnome/desktop/peripherals/touchpad]
+tap-to-click=true
+natural-scroll=true
+two-finger-scrolling-enabled=true
+
+[org/gnome/desktop/privacy]
+report-technical-problems=false
+send-software-usage-stats=false
+remember-recent-files=true
+remove-old-trash-files=true
+old-files-age=uint32 30
+
+[org/gnome/mutter]
+center-new-windows=true
+dynamic-workspaces=true
+edge-tiling=true
+attach-modal-dialogs=true
+
+[org/gnome/nautilus/preferences]
+default-folder-viewer='icon-view'
+show-create-link=true
+show-delete-permanently=true
+
+[org/gnome/nautilus/icon-view]
+default-zoom-level='small-plus'
+
+[org/gnome/settings-daemon/plugins/power]
+power-button-action='interactive'
+
+[org/gnome/terminal/legacy]
+theme-variant='dark'
+
+# --------------------------------------------------------------- the taskbar
+#
+# Dash to Panel with its own defaults for position and size (bottom, 48px):
+# its per-monitor keys are indexed by monitor, and leaving them empty is the
+# one setting that is right on every machine.
+
+[org/gnome/shell/extensions/dash-to-panel]
+stockgs-keep-dash=false
+stockgs-keep-top-panel=false
+dot-position='BOTTOM'
+dot-style-focused='METRO'
+dot-style-unfocused='DOTS'
+dot-color-override=true
+dot-color-1='#7dd3a0'
+dot-color-2='#7dd3a0'
+dot-color-3='#7dd3a0'
+dot-color-4='#7dd3a0'
+focus-highlight=true
+focus-highlight-color='#7dd3a0'
+appicon-margin=4
+appicon-padding=6
+group-apps=true
+show-favorites=true
+show-window-previews=true
+isolate-workspaces=false
+animate-appicon-hover=true
+trans-use-custom-opacity=true
+trans-panel-opacity=0.72
+trans-use-dynamic-opacity=true
+global-border-radius=0
+intellihide=false
+hot-keys=true
+taskbar-locked=false
+
+# ------------------------------------------------------------ the start menu
+
+[org/gnome/shell/extensions/arcmenu]
+menu-layout='windows'
+position-in-panel='Left'
+menu-button-appearance='Icon'
+menu-button-icon='/usr/share/pixmaps/veil/veil-mark-light.png'
+dash-to-panel-standalone=false
+multi-monitor=true
+pinned-apps=@PINNED@
+
+# ------------------------------------------------------------------- blur
+
+[org/gnome/shell/extensions/blur-my-shell]
+sigma=30
+brightness=0.6
+color-and-noise=true
+hacks-level=1
+
+# customize=true is what makes the panel use its own sigma and brightness;
+# without it these two lines are ignored and the global ones apply.
+[org/gnome/shell/extensions/blur-my-shell/panel]
+blur=true
+customize=true
+static-blur=true
+sigma=30
+brightness=0.55
+
+# The taskbar is Dash to Panel's, and Blur my Shell blurs it through this.
+[org/gnome/shell/extensions/blur-my-shell/dash-to-panel]
+blur-original-panel=true
+
+[org/gnome/shell/extensions/blur-my-shell/overview]
+blur=true
+
+[org/gnome/shell/extensions/blur-my-shell/applications]
+blur=false
+
+# ------------------------------------------------------------ desktop icons
+
+[org/gnome/shell/extensions/ding]
+show-home=true
+show-trash=true
+show-volumes=true
+icon-size='standard'
+start-corner='top-left'

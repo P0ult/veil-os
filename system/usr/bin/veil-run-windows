@@ -1,0 +1,89 @@
+#!/bin/bash
+# Run a Windows program, the way double-clicking one should.
+#
+#     veil-run-windows setup.exe
+#     veil-run-windows installer.msi
+#
+# The first time, it builds the Wine prefix and - if there is a network -
+# adds DXVK and VKD3D-Proton, which translate DirectX 9-12 to Vulkan. That is
+# the single biggest difference between a game that runs and one that does
+# not, and it is the part most people never find out they needed. After that
+# it just runs the program.
+#
+# Nothing here needs root. Everything lives in ~/.wine, which is where every
+# guide on the internet expects it to be.
+
+set -u
+
+WINE="${WINE:-$(command -v wine || echo /opt/wine-stable/bin/wine)}"
+export WINEPREFIX="${WINEPREFIX:-$HOME/.wine}"
+export WINEDEBUG="${WINEDEBUG:--all}"
+STAMP="$WINEPREFIX/.veil-ready"
+
+notify() {
+    command -v notify-send >/dev/null && notify-send -a "Windows programs" -i wine "$1" "${2:-}" || true
+}
+
+fail() {
+    zenity --error --title="Windows programs" --width=420 --text="$1" 2>/dev/null || echo "$1" >&2
+    exit 1
+}
+
+[ -x "$WINE" ] || fail "Wine is not installed. Install it from the Veil Store to run Windows programs."
+
+# ------------------------------------------------------------- first run
+
+first_run() {
+    (
+        echo "10"; echo "# Setting up Windows compatibility..."
+        "$WINE" wineboot --init >/dev/null 2>&1
+        wineserver -w 2>/dev/null || true
+
+        echo "50"; echo "# Adding DirectX support (DXVK and VKD3D)..."
+        if command -v winetricks >/dev/null && getent hosts github.com >/dev/null 2>&1; then
+            # -q: no prompts. --unattended: no dialogs of its own.
+            winetricks -q --unattended dxvk vkd3d >/dev/null 2>&1 || true
+        fi
+
+        echo "90"; echo "# Finishing..."
+        wineserver -w 2>/dev/null || true
+        touch "$STAMP"
+        echo "100"
+    ) | zenity --progress --title="Windows programs" --width=420 \
+        --text="Setting up Windows compatibility. This happens once." \
+        --percentage=0 --auto-close --no-cancel 2>/dev/null \
+    || {
+        # No display to draw on: do it quietly.
+        "$WINE" wineboot --init >/dev/null 2>&1
+        touch "$STAMP"
+    }
+}
+
+[ -f "$STAMP" ] || first_run
+
+# ------------------------------------------------------------------- run
+
+[ $# -ge 1 ] || { "$WINE" winecfg; exit $?; }
+
+target="$1"
+shift
+[ -e "$target" ] || fail "There is no file at\n$target"
+
+dir="$(cd "$(dirname "$target")" && pwd)"
+cd "$dir" || true
+
+case "${target,,}" in
+    *.msi)
+        exec "$WINE" msiexec /i "$target" "$@"
+        ;;
+    *.lnk)
+        exec "$WINE" start "$target" "$@"
+        ;;
+    *.bat|*.cmd)
+        exec "$WINE" cmd /c "$target" "$@"
+        ;;
+    *)
+        # start /unix: Wine translates the Linux path itself, spaces and all.
+        exec "$WINE" start /unix "$target" "$@"
+        ;;
+esac

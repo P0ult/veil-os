@@ -1,0 +1,22 @@
+# What comes installed.
+
+libreoffice
+libreoffice-gtk3
+libreoffice-style-colibre
+libreoffice-gnome
+hunspell-en-us
+hunspell-en-gb
+hyphen-en-us
+mythes-en-us
+
+vlc
+vlc-plugin-access-extra
+
+# Flatpak, which the Veil Store installs most apps through
+flatpak
+xdg-desktop-portal
+
+# for the Veil apps themselves
+libnotify-bin
+policykit-1
+packagekit

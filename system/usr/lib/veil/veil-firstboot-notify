@@ -1,0 +1,36 @@
+#!/bin/bash
+# Tell the person at the desktop what first boot did about graphics drivers.
+# Runs at login; says each thing once.
+
+STATE=/var/lib/veil/firstboot.json
+SEEN="${XDG_STATE_HOME:-$HOME/.local/state}/veil/firstboot-seen"
+
+[ -r "$STATE" ] || exit 0
+command -v notify-send >/dev/null || exit 0
+
+current="$(cat "$STATE")"
+[ "$current" = "$(cat "$SEEN" 2>/dev/null)" ] && exit 0
+
+status="$(sed -n 's/.*"status":"\([^"]*\)".*/\1/p' <<<"$current")"
+detail="$(sed -n 's/.*"detail":"\([^"]*\)".*/\1/p' <<<"$current")"
+
+case "$status" in
+    done)
+        notify-send -a "Veil OS" -i veil-os -u normal \
+            "NVIDIA graphics driver installed" "Restart to start using it."
+        ;;
+    waiting-for-network)
+        notify-send -a "Veil OS" -i veil-os -u normal \
+            "Graphics driver not installed yet" "$detail"
+        ;;
+    failed)
+        notify-send -a "Veil OS" -i veil-os -u critical \
+            "Graphics driver could not be installed" "$detail"
+        ;;
+    *)
+        # Nothing worth interrupting anyone for.
+        ;;
+esac
+
+mkdir -p "$(dirname "$SEEN")"
+echo "$current" > "$SEEN"

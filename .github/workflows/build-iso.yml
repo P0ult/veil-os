@@ -1,0 +1,173 @@
+# Builds the Veil OS ISO, boots it, and - for a tag - publishes it.
+#
+#   push to main, or a pull request   checks, build, boot test
+#   push a tag like os-v1.0           the same, then a draft release with the ISO
+#   Actions > Build Veil OS > Run     the same as a push, by hand
+#
+# GitHub limits a release file to 2 GiB and the ISO is larger, so a release
+# carries it in parts with a script to join them. The boot test's screenshots
+# and serial logs are kept as a build artifact either way.
+name: Build Veil OS
+
+on:
+  push:
+    branches: [main]
+    tags: ['os-v*']
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      browser_deb_url:
+        description: A Veil Browser .deb to use instead of the latest published release
+        required: false
+        default: ''
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Every package exists in Ubuntu 24.04
+        run: python3 tests/check-packages.py
+
+      - name: Every Store entry exists on Flathub or in Ubuntu
+        run: python3 tests/check-catalog.py
+
+      - name: Scripts parse
+        run: |
+          set -e
+          for f in build/build.sh build/config.sh build/chroot/*.sh tests/boot-test.sh \
+                   apps/veil-center/build-deb.sh apps/veil-center/helper/veil-store-helper \
+                   system/usr/bin/veil-run-windows system/usr/lib/veil/*; do
+            bash -n "$f"
+          done
+          sh -n apps/veil-center/packaging/postinst
+          sh -n apps/veil-center/packaging/postrm
+          shellcheck -S error build/build.sh build/chroot/*.sh tests/boot-test.sh \
+            apps/veil-center/build-deb.sh apps/veil-center/helper/veil-store-helper \
+            system/usr/bin/veil-run-windows system/usr/lib/veil/*
+
+      - name: Desktop defaults compile
+        run: |
+          set -e
+          sudo apt-get install -y -qq dconf-cli
+          mkdir -p /tmp/dconf/local.d
+          sed -e "s|@FAVORITES@|['veil.desktop']|" -e "s|@PINNED@|[{'id': 'veil.desktop'}]|" \
+            desktop/dconf/00-veil > /tmp/dconf/local.d/00-veil
+          python3 desktop/generate-dconf.py /tmp/dconf/local.d/10-layout
+          dconf compile /tmp/dconf/out /tmp/dconf/local.d
+
+      - name: Veil Center tests
+        working-directory: apps/veil-center
+        run: node test/run.js
+
+  iso:
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VEIL_BROWSER_DEB_URL: ${{ github.event.inputs.browser_deb_url }}
+    steps:
+      # The runner's own disk is too small for a chroot, a squashfs and an
+      # ISO side by side; /mnt has room, and some preinstalled toolchains can go.
+      - name: Make room
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force > /dev/null || true
+          sudo mkdir -p /mnt/veil && sudo chown "$USER" /mnt/veil
+          df -h / /mnt
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil dpkg-dev
+
+      - name: Veil Store and Veil Appearance
+        run: apps/veil-center/build-deb.sh
+
+      - name: Build the ISO
+        run: |
+          sudo --preserve-env=GITHUB_TOKEN,VEIL_BROWSER_DEB_URL \
+            WORK=/mnt/veil/work OUT="$PWD/out" \
+            build/build.sh
+          ls -la out
+
+      - name: Boot tools
+        run: |
+          sudo apt-get install -y -qq qemu-system-x86 ovmf xorriso
+          # Let the runner's user open /dev/kvm.
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || true
+
+      - name: Boot test
+        id: boot
+        run: tests/boot-test.sh out/*.iso out/boot-test
+
+      - name: Summary
+        if: always()
+        run: |
+          [ -f out/boot-test/summary.md ] && cat out/boot-test/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Keep screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-test
+          path: |
+            out/boot-test/**/*.png
+            out/boot-test/**/*.log
+            out/boot-test/summary.md
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Split the ISO for the release
+        if: startsWith(github.ref, 'refs/tags/os-v')
+        run: |
+          set -e
+          cd out
+          iso="$(ls *.iso)"
+          mkdir release
+          split -b 1900M -d -a 1 "$iso" "release/$iso.part"
+          sha256sum "$iso" > "release/$iso.sha256"
+          cat > release/join.sh <<EOF
+          #!/bin/sh
+          # Put the Veil OS ISO back together and check it.
+          set -e
+          cat $iso.part* > $iso
+          sha256sum -c $iso.sha256
+          EOF
+          cat > release/join.cmd <<EOF
+          @echo off
+          rem Put the Veil OS ISO back together and check it.
+          copy /b $(ls release | grep part | sed 's/^/"/; s/$/"/' | paste -sd+ -) "$iso"
+          certutil -hashfile "$iso" SHA256
+          type "$iso.sha256"
+          EOF
+          chmod +x release/join.sh
+          ls -la release
+
+      - name: Draft release
+        if: startsWith(github.ref, 'refs/tags/os-v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --draft --title "Veil OS ${GITHUB_REF_NAME#os-v}" \
+            --notes-file out/boot-test/summary.md out/release/*

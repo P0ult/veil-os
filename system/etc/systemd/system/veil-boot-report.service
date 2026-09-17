@@ -1,0 +1,18 @@
+# For the automated boot test only. It runs when the kernel is started with
+# veil.test=1 - which nothing but the CI harness does - and reports on the
+# serial port whether the desktop came up, so a build can be judged by more
+# than a screenshot.
+
+[Unit]
+Description=Veil OS boot test report
+ConditionKernelCommandLine=veil.test=1
+After=graphical.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/veil/veil-boot-report
+StandardOutput=tty
+TTYPath=/dev/ttyS0
+
+[Install]
+WantedBy=graphical.target

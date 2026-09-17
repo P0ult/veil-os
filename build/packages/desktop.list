@@ -1,0 +1,75 @@
+# GNOME, arranged by Veil. Deliberately not ubuntu-desktop: that brings
+# Ubuntu's session, branding and snapd with it.
+
+gdm3
+gnome-shell
+gnome-session
+gnome-settings-daemon
+gnome-control-center
+gnome-shell-extensions
+gnome-shell-extension-manager
+gnome-shell-extension-appindicator
+gnome-shell-extension-desktop-icons-ng
+gnome-tweaks
+gnome-keyring
+libpam-gnome-keyring
+seahorse
+xdg-desktop-portal-gnome
+xdg-desktop-portal-gtk
+xdg-user-dirs-gtk
+gnome-remote-desktop
+gnome-online-accounts
+gnome-bluetooth-3-common
+switcheroo-control
+
+# the everyday apps
+nautilus
+nautilus-extension-gnome-terminal
+gnome-terminal
+gnome-text-editor
+gnome-system-monitor
+gnome-disk-utility
+gnome-calculator
+gnome-calendar
+gnome-characters
+gnome-clocks
+gnome-font-viewer
+gnome-logs
+gnome-snapshot
+gnome-sushi
+baobab
+file-roller
+eog
+evince
+simple-scan
+deja-dup
+transmission-gtk
+
+# theming
+papirus-icon-theme
+sassc
+gtk2-engines-murrine
+gnome-themes-extra
+libglib2.0-bin
+dconf-cli
+
+# fonts: a good UI face, emoji, and the metric-compatible families that make
+# documents from Windows lay out the same
+fonts-inter
+fonts-jetbrains-mono
+fonts-noto-core
+fonts-noto-cjk
+fonts-noto-color-emoji
+fonts-dejavu
+fonts-liberation
+fonts-liberation2
+fonts-crosextra-carlito
+fonts-crosextra-caladea
+
+# Qt programs (VLC, the installer) drawn with the GTK theme, so they match
+qt5-gtk-platformtheme
+qt6-gtk-platformtheme
+
+# accessibility
+orca
+gnome-accessibility-themes

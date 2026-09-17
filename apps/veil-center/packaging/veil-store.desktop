@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Veil Store
+GenericName=Software
+Comment=Install apps, and find replacements for the Windows programs you know
+Keywords=software;apps;install;store;flatpak;flathub;windows;
+Exec=veil-store %U
+Icon=veil-store
+Terminal=false
+Categories=System;PackageManager;GTK;
+StartupNotify=true
+StartupWMClass=Veil Store
+SingleMainWindow=true

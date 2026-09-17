@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Windows Compatibility
+GenericName=Wine settings
+Comment=Settings for running Windows programs: Windows version, graphics, drives and audio
+Exec=/usr/bin/veil-run-windows
+Icon=wine
+Terminal=false
+StartupNotify=true
+Categories=System;Settings;
+Keywords=wine;windows;exe;compatibility;

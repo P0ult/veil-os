@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Veil OS
+GenericName=System installer
+Comment=Install Veil OS on this computer
+Exec=/usr/bin/veil-installer
+Icon=veil-os
+Terminal=false
+StartupNotify=true
+Categories=System;
+Keywords=installer;calamares;install;
+X-GNOME-Autostart-enabled=true

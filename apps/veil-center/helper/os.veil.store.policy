@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  Who may install software through the Veil Store.
+
+  An administrator, after confirming with their password - the same rule apt
+  itself has. auth_admin_keep means the Store does not ask again for every
+  app installed in the same few minutes.
+-->
+<policyconfig>
+  <vendor>Veil OS</vendor>
+  <vendor_url>https://github.com/P0ult/veil-os</vendor_url>
+  <icon_name>veil-store</icon_name>
+
+  <action id="os.veil.store.manage">
+    <description>Install and remove software</description>
+    <message>The Veil Store needs your password to install or remove software.</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/veil/veil-store-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+</policyconfig>

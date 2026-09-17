@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Windows Program Loader
+GenericName=Run Windows programs
+Comment=Open .exe and .msi files with Wine
+Exec=/usr/bin/veil-run-windows %f
+Icon=wine
+Terminal=false
+NoDisplay=true
+StartupNotify=true
+Categories=System;Emulator;
+MimeType=application/x-ms-dos-executable;application/x-msdos-program;application/x-msdownload;application/vnd.microsoft.portable-executable;application/x-msi;application/x-ms-shortcut;application/x-bat;

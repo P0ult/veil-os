@@ -1,0 +1,50 @@
+# Veil OS boot menu.
+#
+# The background carries the wordmark; everything here is the menu drawn over
+# it. Colours are the browser's: the page dark, the text light, the accent
+# mint green on the entry that is selected.
+
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#0b0e13"
+terminal-font: "Unifont Regular 16"
+
++ boot_menu {
+    left = 50%-280
+    top = 44%
+    width = 560
+    height = 36%
+    item_font = "DejaVu Sans Regular 16"
+    item_color = "#9aa6b4"
+    selected_item_font = "DejaVu Sans Bold 16"
+    selected_item_color = "#e6ebf2"
+    selected_item_pixmap_style = "select_*.png"
+    item_height = 44
+    item_padding = 14
+    item_spacing = 8
+    icon_width = 0
+    icon_height = 0
+    scrollbar = false
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 50%-140
+    top = 86%
+    width = 280
+    height = 3
+    show_text = false
+    bg_color = "#1c2430"
+    fg_color = "#7dd3a0"
+    border_color = "#1c2430"
+}
+
++ label {
+    left = 0
+    top = 90%
+    width = 100%
+    align = "center"
+    color = "#7d8a99"
+    font = "DejaVu Sans Regular 12"
+    text = "Arrow keys to choose  ·  Enter to start  ·  E to edit"
+}

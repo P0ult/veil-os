@@ -1,0 +1,29 @@
+# Veil OS, as the installer shows it.
+---
+componentName: veil
+welcomeStyleCalamares: true
+windowExpanding: normal
+windowSize: 960px,640px
+windowPlacement: center
+strings:
+    productName:         Veil OS
+    shortProductName:    Veil OS
+    version:             "@VERSION@"
+    shortVersion:        "@VERSION@"
+    versionedName:       Veil OS @VERSION@
+    shortVersionedName:  Veil OS @VERSION@
+    bootloaderEntryName: Veil OS
+    productUrl:          https://github.com/P0ult/veil-os
+    supportUrl:          https://github.com/P0ult/veil-os/issues
+    knownIssuesUrl:      https://github.com/P0ult/veil-os/issues
+images:
+    productLogo:         "logo.png"
+    productIcon:         "icon.png"
+    productWelcome:      "welcome.png"
+slideshow:               "show.qml"
+slideshowAPI:            1
+style:
+   SidebarBackground:        "#0b0e13"
+   SidebarText:              "#9aa6b4"
+   SidebarTextCurrent:       "#7dd3a0"
+   SidebarBackgroundCurrent: "#131b26"

@@ -1,0 +1,214 @@
+# Veil OS boot animation.
+#
+# Four layers, all drawn by branding/generate.py: a glow that breathes, a faint
+# ring with an arc turning around it, the mark in the middle, and - once the
+# machine has nearly finished starting - the mark again in the accent colour,
+# faded in over the white one. Underneath, a thin progress line appears only
+# when there is something slow worth showing, such as a disk check.
+#
+# Plymouth's script language keeps a variable local to its function unless it
+# is written as global.name, which is why everything that has to survive from
+# one frame to the next is.
+#
+# The refresh function runs about fifty times a second.
+
+# --------------------------------------------------------------- the canvas
+
+Window.SetBackgroundTopColor(0.043, 0.055, 0.075);       # #0b0e13
+Window.SetBackgroundBottomColor(0.043, 0.055, 0.075);
+
+global.cx = Window.GetX() + Window.GetWidth() / 2;
+global.cy = Window.GetY() + Window.GetHeight() / 2 - 20;
+
+# ------------------------------------------------------------------ layers
+
+global.glow_img = Image("glow.png");
+global.glow = Sprite(glow_img);
+glow.SetX(cx - glow_img.GetWidth() / 2);
+glow.SetY(cy - glow_img.GetHeight() / 2);
+glow.SetZ(1);
+glow.SetOpacity(0);
+
+global.track_img = Image("ring-track.png");
+global.track = Sprite(track_img);
+track.SetX(cx - track_img.GetWidth() / 2);
+track.SetY(cy - track_img.GetHeight() / 2);
+track.SetZ(2);
+track.SetOpacity(0);
+
+# Sixty frames of the arc, pre-turned six degrees apart.
+global.ring_count = 60;
+for (i = 0; i < ring_count; i++) {
+    if (i < 10) name = "ring/ring-0" + i + ".png";
+    else name = "ring/ring-" + i + ".png";
+    global.ring_frames[i] = Image(name);
+}
+global.ring = Sprite(ring_frames[0]);
+ring.SetX(cx - ring_frames[0].GetWidth() / 2);
+ring.SetY(cy - ring_frames[0].GetHeight() / 2);
+ring.SetZ(3);
+ring.SetOpacity(0);
+
+global.mark_img = Image("mark.png");
+global.mark = Sprite(mark_img);
+mark.SetX(cx - mark_img.GetWidth() / 2);
+mark.SetY(cy - mark_img.GetHeight() / 2);
+mark.SetZ(4);
+mark.SetOpacity(0);
+
+global.accent_img = Image("mark-accent.png");
+global.accent = Sprite(accent_img);
+accent.SetX(cx - accent_img.GetWidth() / 2);
+accent.SetY(cy - accent_img.GetHeight() / 2);
+accent.SetZ(5);
+accent.SetOpacity(0);
+
+# The progress line, hidden until a boot step is slow enough to warrant it.
+global.bar_y = cy + 190;
+global.track_bar_img = Image("progress-track.png");
+global.track_bar = Sprite(track_bar_img);
+track_bar.SetX(cx - track_bar_img.GetWidth() / 2);
+track_bar.SetY(bar_y);
+track_bar.SetZ(6);
+track_bar.SetOpacity(0);
+
+global.fill_src = Image("progress-fill.png");
+global.fill_bar = Sprite();
+fill_bar.SetX(cx - fill_src.GetWidth() / 2);
+fill_bar.SetY(bar_y);
+fill_bar.SetZ(7);
+
+# ------------------------------------------------------------------- state
+
+global.tick = 0;
+global.progress = 0;
+global.password_shown = 0;
+
+fun clamp(v, lo, hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+
+# ------------------------------------------------------------- each frame
+
+fun refresh() {
+    global.tick++;
+    t = tick / 50;                                   # seconds, roughly
+
+    # Fade everything in over the first second, so the splash arrives rather
+    # than snaps on.
+    appear = clamp(t / 1.0, 0, 1);
+
+    # The glow breathes: a slow sine between two brightnesses.
+    breath = 0.55 + 0.35 * Math.Sin(t * 2.2);
+    glow.SetOpacity(appear * breath);
+
+    track.SetOpacity(appear * 0.9);
+
+    # The arc turns once every two seconds and a bit.
+    frame = Math.Int(tick * 0.55) % ring_count;
+    ring.SetImage(ring_frames[frame]);
+    ring.SetOpacity(appear);
+
+    mark.SetOpacity(appear);
+
+    # Past eighty per cent booted, the accent mark fades in over the white one:
+    # the machine is nearly ready, and it shows.
+    finish = clamp((progress - 0.8) / 0.2, 0, 1);
+    accent.SetOpacity(finish);
+
+    # The progress line only when it has something to say: a boot that is
+    # still going after four seconds is worth a line, a quick one is not.
+    if (t > 4 && progress < 0.99 && !password_shown) {
+        track_bar.SetOpacity(0.9);
+        width = Math.Int(fill_src.GetWidth() * clamp(progress, 0, 1));
+        if (width > 0) {
+            fill_bar.SetImage(fill_src.Scale(width, fill_src.GetHeight()));
+            fill_bar.SetOpacity(1);
+        }
+    } else {
+        track_bar.SetOpacity(0);
+        fill_bar.SetOpacity(0);
+    }
+}
+Plymouth.SetRefreshFunction(refresh);
+
+fun boot_progress(duration, value) {
+    global.progress = value;
+}
+Plymouth.SetBootProgressFunction(boot_progress);
+
+# ------------------------------------------------------------- disk password
+
+global.entry_img = Image("entry.png");
+global.entry = Sprite(entry_img);
+entry.SetX(cx - entry_img.GetWidth() / 2);
+entry.SetY(cy + 170);
+entry.SetZ(10);
+entry.SetOpacity(0);
+
+global.bullet_img = Image("bullet.png");
+global.bullets = [];
+global.prompt_sprite = Sprite();
+prompt_sprite.SetZ(10);
+
+fun display_password(prompt, count) {
+    global.password_shown = 1;
+    entry.SetOpacity(1);
+
+    text = Image.Text(prompt, 0.90, 0.92, 0.95, 1, "Sans 12");
+    prompt_sprite.SetImage(text);
+    prompt_sprite.SetX(cx - text.GetWidth() / 2);
+    prompt_sprite.SetY(cy + 140);
+    prompt_sprite.SetOpacity(1);
+
+    # One dot per character typed, centred in the box, capped at what fits.
+    shown = count;
+    if (shown > 24) shown = 24;
+    spacing = 14;
+    start = cx - (shown * spacing) / 2 + 2;
+    for (i = 0; i < 24; i++) {
+        if (!bullets[i]) {
+            bullets[i] = Sprite(bullet_img);
+            bullets[i].SetZ(11);
+        }
+        if (i < shown) {
+            bullets[i].SetX(start + i * spacing);
+            bullets[i].SetY(cy + 170 + entry_img.GetHeight() / 2 - bullet_img.GetHeight() / 2);
+            bullets[i].SetOpacity(1);
+        } else {
+            bullets[i].SetOpacity(0);
+        }
+    }
+}
+Plymouth.SetDisplayPasswordFunction(display_password);
+
+fun display_normal() {
+    global.password_shown = 0;
+    entry.SetOpacity(0);
+    prompt_sprite.SetOpacity(0);
+    for (i = 0; i < 24; i++) {
+        if (bullets[i]) bullets[i].SetOpacity(0);
+    }
+}
+Plymouth.SetDisplayNormalFunction(display_normal);
+
+# ---------------------------------------------------------------- messages
+
+global.message_sprite = Sprite();
+message_sprite.SetZ(12);
+
+fun show_message(text) {
+    img = Image.Text(text, 0.49, 0.54, 0.60, 1, "Sans 10");
+    message_sprite.SetImage(img);
+    message_sprite.SetX(cx - img.GetWidth() / 2);
+    message_sprite.SetY(Window.GetY() + Window.GetHeight() - 60);
+    message_sprite.SetOpacity(1);
+}
+Plymouth.SetMessageFunction(show_message);
+
+fun quit() {
+    # The desktop takes over from here; nothing to tidy.
+}
+Plymouth.SetQuitFunction(quit);

@@ -1,0 +1,86 @@
+#!/bin/bash
+# Report, on the serial console, how far the live system got. Read by
+# tests/boot-test.sh; see veil-boot-report.service.
+
+say() { echo "VEIL-REPORT $*"; }
+
+say "stage=graphical-target"
+say "os=$(. /etc/os-release; echo "$PRETTY_NAME")"
+say "kernel=$(uname -r)"
+say "secureboot=$(mokutil --sb-state 2>/dev/null | head -n1 || echo unknown)"
+say "cmdline=$(cat /proc/cmdline)"
+
+# Wait for the desktop: gnome-shell running for the live user.
+for i in $(seq 1 150); do
+    if pgrep -u "$(id -u veil 2>/dev/null || echo 1000)" -x gnome-shell >/dev/null 2>&1; then
+        say "stage=desktop seconds=$((i * 2))"
+        break
+    fi
+    sleep 2
+done
+pgrep -x gnome-shell >/dev/null || say "stage=no-desktop"
+
+# What the desktop is made of, as checks that can each pass or fail.
+check() {
+    local name="$1"; shift
+    if "$@" >/dev/null 2>&1; then say "check $name=ok"; else say "check $name=FAIL"; fi
+}
+
+check plymouth-theme   test "$(readlink -f /usr/share/plymouth/themes/default.plymouth)" = /usr/share/plymouth/themes/veil/veil.plymouth
+check wine             wine --version
+check winetricks       winetricks --version
+check steam            test -x /usr/games/steam -o -x /usr/bin/steam
+check lutris           command -v lutris
+check libreoffice      command -v libreoffice
+check vlc              command -v vlc
+check veil-browser     test -f "/usr/share/applications/$(cat /usr/lib/veil/browser-desktop-id)"
+check veil-store       test -f /usr/share/applications/veil-store.desktop
+check veil-appearance  test -f /usr/share/applications/veil-appearance.desktop
+check flathub          sh -c "flatpak remotes --system --columns=name | grep -qx flathub"
+check calamares        command -v calamares
+check i386-arch        sh -c "dpkg --print-foreign-architectures | grep -qx i386"
+check vulkan-i386      test -e /usr/lib/i386-linux-gnu/libvulkan.so.1
+check mesa-kisak       sh -c "apt-cache policy libgl1-mesa-dri | grep -q kisak"
+check dash-to-panel    test -d /usr/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com
+check arcmenu          test -d /usr/share/gnome-shell/extensions/arcmenu@arcmenu.com
+check blur-my-shell    test -d /usr/share/gnome-shell/extensions/blur-my-shell@aunetx
+check theme-colloid    test -d /usr/share/themes/Colloid-Green-Dark
+check no-snapd         sh -c "! dpkg -l snapd 2>/dev/null | grep -q '^ii'"
+check os-release       grep -q '^ID=veil' /etc/os-release
+check apt-template     python3 -c "from aptsources.distro import get_distro; get_distro()"
+check apparmor-apps    sh -c "grep -q veil-center /sys/kernel/security/apparmor/profiles && ls /etc/apparmor.d | grep -qi veil"
+
+# Extensions actually enabled for the live user, as the shell sees them.
+uid="$(id -u veil 2>/dev/null)"
+if [ -n "$uid" ]; then
+    enabled="$(sudo -u veil DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+        gsettings get org.gnome.shell enabled-extensions 2>/dev/null)"
+    say "enabled-extensions=${enabled}"
+    theme="$(sudo -u veil DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+        gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null)"
+    say "gtk-theme=${theme}"
+
+    # The Electron apps actually start in the session: on Ubuntu 24.04 a
+    # missing AppArmor profile makes them exit at once, which no file check
+    # would notice. Still running when the timeout ends means it started.
+    starts() {
+        sudo -u veil env XDG_RUNTIME_DIR="/run/user/${uid}" WAYLAND_DISPLAY=wayland-0             DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus"             timeout 15 "$@" --ozone-platform=wayland >/dev/null 2>&1
+        [ $? -eq 124 ]
+    }
+    check store-starts       starts /opt/veil-center/veil-center --store
+    check appearance-starts  starts /opt/veil-center/veil-center --appearance
+    browser_bin="$(grep -m1 '^Exec=' "/usr/share/applications/$(cat /usr/lib/veil/browser-desktop-id)" | sed 's/^Exec=//; s/"//g; s/ .*//')"
+    check browser-starts     starts "$browser_bin"
+
+    for ext in dash-to-panel@jderose9.github.com arcmenu@arcmenu.com blur-my-shell@aunetx; do
+        state="$(sudo -u veil DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${uid}/bus" \
+            gdbus call --session --dest org.gnome.Shell.Extensions \
+            --object-path /org/gnome/Shell/Extensions \
+            --method org.gnome.Shell.Extensions.GetExtensionInfo "$ext" 2>/dev/null \
+            | grep -o "'state': <[0-9.]*>" | grep -o '[0-9.]*')"
+        # 1 is enabled; anything else is not running.
+        say "extension $ext state=${state:-unknown}"
+    done
+fi
+
+say "done"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Veil Appearance
+GenericName=Appearance
+Comment=Choose a desktop layout, colours, wallpaper, taskbar and text size
+Keywords=theme;layout;taskbar;panel;dock;wallpaper;background;colour;color;accent;dark;light;font;cursor;
+Exec=veil-appearance
+Icon=veil-appearance
+Terminal=false
+Categories=Settings;DesktopSettings;GTK;
+StartupNotify=true
+StartupWMClass=Veil Appearance
+SingleMainWindow=true

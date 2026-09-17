@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-scheme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: veil-icon: veil-local: https://dl.flathub.org; style-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Veil Store</title>
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="store.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M5 7 L16 26 L27 7" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M11 7 L16 16 L21 7" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+        </svg>
+        <span>Veil Store</span>
+      </div>
+      <label class="search">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13 13l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input id="search" type="search" placeholder="Search for an app, or what you want to do" autocomplete="off" spellcheck="false" aria-label="Search apps">
+      </label>
+    </header>
+
+    <nav class="side" aria-label="Sections">
+      <button data-view="discover" aria-current="page">Discover</button>
+      <div class="side-group" id="nav-categories"></div>
+      <div class="side-rule"></div>
+      <button data-view="installed">Installed</button>
+      <button data-view="updates">Updates <span class="count" id="update-count" hidden></span></button>
+    </nav>
+
+    <main id="main" tabindex="-1"></main>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="sheet" id="sheet" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></aside>
+
+  <script src="common.js"></script>
+  <script src="store.js"></script>
+</body>
+</html>

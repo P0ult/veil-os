@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = configure ]; then
+    # Chromium's fallback sandbox, for kernels where user namespaces are off.
+    if [ -f /opt/veil-center/chrome-sandbox ]; then
+        chown root:root /opt/veil-center/chrome-sandbox
+        chmod 4755 /opt/veil-center/chrome-sandbox
+    fi
+
+    # In a chroot (the OS image build) the kernel is the build machine's, so
+    # the profile is left to load at boot like every other one.
+    if command -v apparmor_parser >/dev/null 2>&1 && [ -d /sys/kernel/security/apparmor ] \
+       && ! { [ -x /usr/bin/ischroot ] && /usr/bin/ischroot; }; then
+        apparmor_parser -r -T -W /etc/apparmor.d/veil-center || true
+    fi
+
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -q -f /usr/share/icons/hicolor || true
+    fi
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database -q /usr/share/applications || true
+    fi
+fi
+
+exit 0

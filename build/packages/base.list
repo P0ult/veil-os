@@ -1,0 +1,111 @@
+# The system underneath: kernel, live-boot machinery, boot loaders, firmware,
+# networking, sound, printing.
+
+# init and the essentials
+systemd-sysv
+dbus-user-session
+sudo
+locales
+tzdata
+keyboard-configuration
+console-setup
+bash-completion
+nano
+less
+curl
+wget
+rsync
+unzip
+zip
+p7zip-full
+gnupg
+software-properties-common
+apt-transport-https
+command-not-found
+apparmor
+mokutil
+
+# the live image and the installer's needs
+casper
+discover
+laptop-detect
+os-prober
+memtest86+
+
+# boot loaders, for both BIOS and UEFI with Secure Boot
+grub-common
+grub-gfxpayload-lists
+grub-pc-bin
+grub2-common
+grub-efi-amd64-bin
+grub-efi-amd64-signed
+shim-signed
+efibootmgr
+mokutil
+mtools
+dosfstools
+
+# splash
+plymouth
+plymouth-label
+plymouth-theme-spinner
+# the text-mode plugin Veil's text splash is built on
+plymouth-theme-ubuntu-text
+
+# hardware
+linux-firmware
+firmware-sof-signed
+intel-microcode
+amd64-microcode
+ubuntu-drivers-common
+fwupd
+pciutils
+usbutils
+lshw
+alsa-ucm-conf
+bluez
+bolt
+thermald
+power-profiles-daemon
+upower
+fprintd
+libpam-fprintd
+
+# networking
+network-manager
+network-manager-openvpn-gnome
+network-manager-openconnect-gnome
+wpasupplicant
+wireless-regdb
+iw
+openssh-client
+avahi-daemon
+libnss-mdns
+
+# sound
+pipewire
+pipewire-pulse
+pipewire-audio
+wireplumber
+pipewire-alsa
+
+# printing and scanning
+cups
+cups-browsed
+printer-driver-all
+system-config-printer-common
+sane-utils
+ipp-usb
+
+# file systems
+btrfs-progs
+xfsprogs
+exfatprogs
+ntfs-3g
+cryptsetup
+lvm2
+gvfs-backends
+gvfs-fuse
+
+# swap in memory, which helps a 4 GB machine run a game
+zram-tools
