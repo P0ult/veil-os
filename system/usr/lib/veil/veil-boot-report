@@ -73,7 +73,10 @@ if [ "$live" = yes ] && [ "$mode" = install ]; then
         say "install=done"
         say "done"
         sleep 2
-        systemctl reboot
+        # Forced: a clean shutdown of a live session stops to ask for the
+        # installation medium to be removed, and nobody is there to answer.
+        sync
+        systemctl reboot --force
     else
         say "install=failed"
         grep -a -i -E 'error|fail|warning' "$(log_file)" 2>/dev/null | tail -n 40 \
@@ -165,6 +168,11 @@ else
     check user-groups        user_groups
     if [ -d /sys/firmware/efi ]; then
         check grub-package   installed grub-efi-amd64
+        say "grub-packages=$(dpkg -l 'grub*' 'shim*' 2>/dev/null | awk '/^[a-z][a-z] / {print $1 ":" $2}' | tr '\n' ' ')"
+        tail -n 25 /var/log/installer/veil-install-bootloader.log 2>/dev/null \
+            | while IFS= read -r line; do say "bootloader-log: ${line:0:180}"; done
+        grep -a -n 'veil-install-bootloader\|before_bootloader' /var/log/installer/calamares-session.log 2>/dev/null | tail -n 12 \
+            | while IFS= read -r line; do say "calamares-log: ${line:0:180}"; done
         check shim           installed shim-signed
         say "efi-boot=$(efibootmgr 2>/dev/null | grep -i -E '^BootCurrent|^Boot[0-9A-F]{4}\*' | tr '\n' ';')"
     else

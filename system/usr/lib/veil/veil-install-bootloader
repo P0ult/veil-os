@@ -17,6 +17,11 @@
 set -u
 export DEBIAN_FRONTEND=noninteractive
 
+# Kept in the installed system, beside the installer's own logs.
+mkdir -p /var/log/installer
+exec > >(tee -a /var/log/installer/veil-install-bootloader.log) 2>&1
+echo "== $(date -Is) $0 $*"
+
 DIR=/usr/lib/veil/bootloader
 log() { echo "veil-install-bootloader: $*"; }
 

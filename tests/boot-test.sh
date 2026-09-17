@@ -221,9 +221,10 @@ install_test() {
     # The installer runs; the report restarts the machine when it is done.
     start=$SECONDS; n=0
     while alive && [ $((SECONDS - start)) -lt $((3600 * SLOW)) ]; do
-        sleep 60
-        alive && shot "$dir/progress-$(printf '%03d' "$n").png"; n=$((n + 1))
+        sleep 20
+        said install=done && break
         said install=failed && break
+        alive && shot "$dir/progress-$(printf '%03d' "$n").png"; n=$((n + 1))
     done
     if ! said install=done; then
         echo "The installation did not finish"
@@ -231,7 +232,12 @@ install_test() {
         stop_machine
         return 1
     fi
-    wait_exit 120 || stop_machine
+    # The live session may still ask for the medium to be removed; answer it.
+    for _ in 1 2 3 4 5 6; do
+        wait_exit 20 && break
+        q --key ret
+    done
+    wait_exit 60 || { shot "$dir/install-no-restart.png"; stop_machine; }
 
     # The installed system, from its own disk.
     log "Installed system"

@@ -57,7 +57,7 @@
     "steam":              { "name": "Steam", "summary": "Valve's game store and library, with Proton for Windows games", "apt": "steam-installer", "desktop": "steam.desktop", "icon": "steam" },
     "lutris":             { "name": "Lutris", "summary": "One library for games from every store and emulator", "apt": "lutris", "desktop": "net.lutris.Lutris.desktop", "icon": "lutris" },
     "vlc":                { "name": "VLC", "summary": "Plays every video and music file there is", "apt": "vlc", "desktop": "vlc.desktop", "icon": "vlc" },
-    "libreoffice-writer": { "name": "LibreOffice", "summary": "Documents, spreadsheets and presentations that open Word, Excel and PowerPoint files", "apt": "libreoffice", "desktop": "libreoffice-startcenter.desktop", "icon": "libreoffice-main" },
+    "libreoffice-writer": { "name": "LibreOffice", "summary": "Documents, spreadsheets and presentations that open Word, Excel and PowerPoint files", "apt": "libreoffice", "desktop": "libreoffice-startcenter.desktop", "icon": "libreoffice-startcenter" },
     "veil-browser":       { "name": "Veil Browser", "summary": "Private browsing with trackers and adverts blocked", "apt": "veil-browser", "desktop": "@browser", "icon": "veil-os" },
     "timeshift":          { "name": "Timeshift", "summary": "Snapshots of the system you can roll back to", "apt": "timeshift", "desktop": "timeshift-gtk.desktop", "icon": "timeshift" },
     "gparted":            { "name": "GParted", "summary": "Resize, create and format disk partitions", "apt": "gparted", "desktop": "gparted.desktop", "icon": "gparted" },
