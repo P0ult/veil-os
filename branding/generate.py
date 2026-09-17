@@ -293,13 +293,15 @@ def grub():
 
     # The highlighted entry: a rounded pill, drawn in nine pieces because that
     # is how GRUB stretches a box.
-    pill = Image.new('RGBA', (60, 60), (0, 0, 0, 0))
-    ImageDraw.Draw(pill).rounded_rectangle([0, 0, 59, 59], radius=14,
+    # GRUB adds the corner pieces' size around the entry, so they are kept
+    # small: the theme's item_spacing has to cover twice their height.
+    pill = Image.new('RGBA', (32, 32), (0, 0, 0, 0))
+    ImageDraw.Draw(pill).rounded_rectangle([0, 0, 31, 31], radius=8,
                                            fill=ACCENT + (46,), outline=ACCENT + (170,), width=2)
     pieces = {
-        'nw': (0, 0, 16, 16), 'n': (16, 0, 44, 16), 'ne': (44, 0, 60, 16),
-        'w': (0, 16, 16, 44), 'c': (16, 16, 44, 44), 'e': (44, 16, 60, 44),
-        'sw': (0, 44, 16, 60), 's': (16, 44, 44, 60), 'se': (44, 44, 60, 60),
+        'nw': (0, 0, 8, 8), 'n': (8, 0, 24, 8), 'ne': (24, 0, 32, 8),
+        'w': (0, 8, 8, 24), 'c': (8, 8, 24, 24), 'e': (24, 8, 32, 24),
+        'sw': (0, 24, 8, 32), 's': (8, 24, 24, 32), 'se': (24, 24, 32, 32),
     }
     for name, box in pieces.items():
         save(pill.crop(box), 'grub', 'veil', f'select_{name}.png')

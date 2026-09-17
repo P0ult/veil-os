@@ -4,9 +4,9 @@
 # it. Colours are the browser's: the page dark, the text light, the accent
 # mint green on the entry that is selected.
 #
-# GRUB draws the selection box item_padding beyond the item on every side, so
-# item_spacing has to be at least twice item_padding or the box of one entry
-# covers the next.
+# GRUB draws the selection box around the entry, item_padding plus the corner
+# pieces (8px) beyond it on every side, so item_spacing has to be at least
+# twice that or the box of one entry covers the next.
 
 title-text: ""
 desktop-image: "background.png"
@@ -15,17 +15,17 @@ terminal-font: "Unifont Regular 16"
 
 + boot_menu {
     left = 50%-280
-    top = 38%
+    top = 34%
     width = 560
-    height = 44%
+    height = 48%
     item_font = "DejaVu Sans Regular 16"
     item_color = "#9aa6b4"
     selected_item_font = "DejaVu Sans Bold 16"
     selected_item_color = "#e6ebf2"
     selected_item_pixmap_style = "select_*.png"
-    item_height = 32
-    item_padding = 7
-    item_spacing = 16
+    item_height = 36
+    item_padding = 4
+    item_spacing = 24
     icon_width = 0
     icon_height = 0
     scrollbar = false

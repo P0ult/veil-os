@@ -1,0 +1,33 @@
+#!/bin/bash
+# AppArmor for the live session.
+#
+# Ubuntu's apparmor.service does not run from live media - it is conditioned
+# on /rofs not existing - so a live session starts with no AppArmor profiles
+# at all, while Ubuntu 24.04 still restricts unprivileged user namespaces.
+# Every Chromium-based app (Veil Browser, the Veil Store, Veil Appearance)
+# and every Flatpak app sandboxes itself with one, and is killed at start:
+#
+#     FATAL:credentials.cc Check failed: . : Permission denied (13)
+#
+# This loads only the profiles that grant `userns` - small, unconfined ones,
+# one per app that needs it - which takes a moment rather than the half a
+# minute loading every profile would. An installed system never runs this;
+# apparmor.service loads everything there.
+
+set -u
+
+loaded=0
+failed=0
+for f in /etc/apparmor.d/*; do
+    [ -f "$f" ] || continue
+    grep -qE '^[[:space:]]*userns[[:space:]]*,' "$f" || continue
+    if apparmor_parser --replace --skip-cache --quiet "$f" 2>/dev/null; then
+        loaded=$((loaded + 1))
+    else
+        failed=$((failed + 1))
+        echo "could not load $f"
+    fi
+done
+
+echo "loaded $loaded AppArmor profiles for sandboxed apps ($failed failed)"
+exit 0

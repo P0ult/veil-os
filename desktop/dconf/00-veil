@@ -118,11 +118,14 @@ global-border-radius=0
 intellihide=false
 hot-keys=true
 taskbar-locked=false
+# Start on the desktop, as Windows does, not in the Activities overview.
+hide-overview-on-startup=true
 
 # ------------------------------------------------------------ the start menu
 
 [org/gnome/shell/extensions/arcmenu]
 menu-layout='windows'
+hide-overview-on-startup=true
 position-in-panel='Left'
 menu-button-appearance='Icon'
 menu-button-icon='/usr/share/pixmaps/veil/veil-mark-light.png'

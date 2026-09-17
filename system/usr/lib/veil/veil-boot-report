@@ -5,6 +5,8 @@
 say() { echo "VEIL-REPORT $*"; }
 # The report itself, kept open for checks whose own output is discarded.
 exec 3>&1
+# A login prompt starting on the same port hangs it up; carry on regardless.
+trap "" HUP
 
 say "stage=graphical-target"
 say "os=$(. /etc/os-release; echo "$PRETTY_NAME")"

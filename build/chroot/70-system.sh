@@ -36,10 +36,16 @@ fi
 grep -q '^DefaultSession=gnome.desktop' /etc/gdm3/custom.conf \
     || { echo "could not set GDM's default session" >&2; exit 1; }
 
+say "AppArmor in the live session"
+install -m 755 "$S/usr/lib/veil/veil-live-apparmor" /usr/lib/veil/
+install -m 644 "$S/etc/systemd/system/veil-live-apparmor.service" /etc/systemd/system/
+# Enabled always; it only runs from live media.
+systemctl enable veil-live-apparmor.service
+
 say "boot-test reporter"
 install -m 755 "$S/usr/lib/veil/veil-boot-report" /usr/lib/veil/
 install -m 644 "$S/etc/systemd/system/veil-boot-report.service" /etc/systemd/system/
-# Enabled always; it only runs when the kernel is started with veil.test=1.
+# Enabled always; it only runs on a machine marked as a test (see the unit).
 systemctl enable veil-boot-report.service
 
 say "installer launcher"

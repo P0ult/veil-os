@@ -1,0 +1,19 @@
+# Loads the AppArmor profiles sandboxed apps need, in the live session only.
+# See /usr/lib/veil/veil-live-apparmor. Ordered like apparmor.service, which
+# this stands in for on live media.
+
+[Unit]
+Description=Load AppArmor profiles for sandboxed apps (live session)
+DefaultDependencies=no
+After=local-fs.target systemd-journald-audit.socket
+Before=sysinit.target display-manager.service
+ConditionPathExists=/rofs/etc/apparmor.d
+ConditionSecurity=apparmor
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/veil/veil-live-apparmor
+
+[Install]
+WantedBy=sysinit.target
