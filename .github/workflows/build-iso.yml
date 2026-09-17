@@ -75,6 +75,7 @@ jobs:
     timeout-minutes: 300
     permissions:
       contents: write
+      actions: read
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VEIL_BROWSER_DEB_URL: ${{ github.event.inputs.browser_deb_url }}
@@ -90,17 +91,37 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # A commit whose message contains [boot-only RUN_ID] skips the build and
+      # boots the ISO that run built, for working on the boot test without
+      # waiting half an hour for an image that has not changed. Never for a
+      # release.
+      - name: Reuse an earlier ISO?
+        id: reuse
+        shell: bash
+        env:
+          MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          run="$(printf '%s\n' "$MESSAGE" | grep -o '\[boot-only [0-9]*\]' | grep -o '[0-9][0-9]*' || true)"
+          run="${run%%$'\n'*}"
+          case "$GITHUB_REF" in refs/tags/*) run="" ;; esac
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          if [ -n "$run" ]; then echo "Booting the ISO built by run $run"; else echo "Building a new ISO"; fi
+
       - uses: actions/setup-node@v4
+        if: steps.reuse.outputs.run == ''
         with:
           node-version: 22
 
       - name: Build tools
+        if: steps.reuse.outputs.run == ''
         run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil dpkg-dev
 
       - name: Veil Store and Veil Appearance
+        if: steps.reuse.outputs.run == ''
         run: apps/veil-center/build-deb.sh
 
       - name: Build the ISO
+        if: steps.reuse.outputs.run == ''
         shell: bash
         run: |
           sudo --preserve-env=GITHUB_TOKEN,VEIL_BROWSER_DEB_URL \
@@ -108,19 +129,49 @@ jobs:
             build/build.sh 2>&1 | tee build.log
           ls -la out
 
+      - name: Keep the ISO for boot-only runs
+        if: steps.reuse.outputs.run == '' && !startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: iso
+          path: out/*.iso
+          compression-level: 0
+          retention-days: 3
+
+      - name: Fetch the earlier ISO
+        if: steps.reuse.outputs.run != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: iso
+          path: out
+          run-id: ${{ steps.reuse.outputs.run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Boot tools
+        shell: bash
         run: |
-          sudo apt-get install -y -qq qemu-system-x86 ovmf xorriso
-          # Let the runner's user open /dev/kvm.
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          ls -l /dev/kvm || true
+          {
+            set -x
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq qemu-system-x86 ovmf python3-pil
+            ls /usr/share/OVMF/
+            # Let the runner's user open /dev/kvm, where the runner has one.
+            if [ -e /dev/kvm ]; then
+              echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+                | sudo tee /etc/udev/rules/99-kvm4all.rules
+              sudo udevadm control --reload-rules || true
+              sudo udevadm trigger --name-match=kvm || true
+              sudo chmod 666 /dev/kvm || true
+              ls -l /dev/kvm
+            else
+              echo "This runner has no /dev/kvm; the boot test will be slow."
+            fi
+          } 2>&1 | tee boot-tools.log
 
       - name: Boot test
         id: boot
-        run: tests/boot-test.sh out/*.iso out/boot-test
+        shell: bash
+        run: tests/boot-test.sh out/*.iso out/boot-test 2>&1 | tee boot-test.log
 
       - name: Summary
         if: always()
@@ -134,15 +185,15 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          for f in build.log out/boot-test/uefi/serial.log; do
+          for f in build.log boot-tools.log boot-test.log out/boot-test/uefi/serial.log; do
             [ -f "$f" ] || continue
-            sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r//g' "$f" | tail -n 90 | cut -c1-160 \
+            sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r//g' "$f" | tail -n 60 | cut -c1-160 \
               | python3 -c '
           import sys
           lines = sys.stdin.read().splitlines()
           for i in range(0, len(lines), 30):
               text = "\n".join(lines[i:i + 30]).replace("%", "%25").replace("\n", "%0A")
-              print(f"::error title={sys.argv[1]} ({i // 30 + 1} of 3)::{text}")
+              print(f"::error title={sys.argv[1]} ({i // 30 + 1} of 2)::{text}")
           ' "$f"
           done
 
@@ -162,6 +213,9 @@ jobs:
             sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r//g' build.log | tail -n 6000 > "$dir/run/build.log"
             grep -n -i -E 'error|fail|unable|not found|cannot|!!' "$dir/run/build.log" | tail -n 300 > "$dir/run/build-errors.txt" || true
           fi
+          for f in boot-tools.log boot-test.log; do
+            if [ -f "$f" ]; then sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$f" > "$dir/run/$f"; fi
+          done
           if [ -d out/boot-test ]; then
             (cd out && find boot-test \( -name '*.png' -o -name '*.log' -o -name '*.md' \) -print0 \
               | xargs -0 -r cp --parents -t "$dir/run")

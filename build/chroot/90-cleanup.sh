@@ -15,6 +15,15 @@ apt-get clean
 say "removing build leftovers"
 rm -f /usr/sbin/policy-rc.d
 
+# Files copied from the build machine, and files unpacked from release
+# archives, keep the owner they had there - often uid 1000, which on an
+# installed system is the first person to sign in. Nothing in the image may
+# belong to an account the image does not have.
+say "ownership"
+find / -xdev \( -nouser -o -nogroup \) -not -path '/tmp/*' -exec chown -h root:root {} +
+stray="$(find / -xdev \( -nouser -o -nogroup \) -not -path '/tmp/*' | wc -l)"
+[ "$stray" -eq 0 ] || { echo "$stray files still belong to no account" >&2; exit 1; }
+
 # Every installed machine gets its own identity on first boot.
 : > /etc/machine-id
 rm -f /var/lib/dbus/machine-id
