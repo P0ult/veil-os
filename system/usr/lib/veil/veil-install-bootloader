@@ -2,8 +2,9 @@
 # The GRUB package for this machine, installed by the installer inside the
 # new system.
 #
-#     veil-install-bootloader efi|bios    before the boot loader is installed
-#     veil-install-bootloader record      after it, from the finishing step
+#     veil-install-bootloader auto        the installer's finishing step
+#     veil-install-bootloader efi|bios    one kind of firmware, by name
+#     veil-install-bootloader record      where GRUB for BIOS lives
 #
 # The package that owns the boot loader on an installed system is grub-pc for
 # BIOS and grub-efi-amd64 for UEFI, and the two conflict. The live image has
@@ -12,8 +13,11 @@
 # installed - on UEFI, swapping grub-pc out - so GRUB is kept up to date by
 # the system's own updates afterwards.
 #
-# A failure here is reported but does not stop the installation: the
-# installer's boot loader step, which comes next, installs GRUB either way.
+# This runs at the end of the installation, after the live-only packages
+# have been removed: grub-pc cannot be taken out while casper still depends
+# on it. GRUB itself is installed earlier, by the installer's own step, from
+# grub2-common and grub-efi-amd64-bin, which are in the image already - so a
+# failure here is reported but does not stop the installation or the boot.
 
 set -u
 export DEBIAN_FRONTEND=noninteractive
@@ -40,16 +44,18 @@ install_pkg() {
         return 0
     fi
     log "installing $(basename "$deb")"
+    log "packages that depend on grub-pc: $(dpkg-query -W -f='${Package} ${Depends} ${Recommends}\n' 2>/dev/null | grep -c 'grub-pc')"
+    dpkg-query -W -f='${Package}: ${Depends}\n' 2>/dev/null | grep 'grub-pc\b' | head -n 10
     # The only conflict in this image is grub-pc against grub-efi-amd64,
     # with grub-gfxpayload-lists depending on grub-pc. dpkg will not replace
     # one with the other by itself, and apt, offline and handed a local
     # package, fails halfway through; so the conflicting side goes first.
     # Removed, not purged: grub-pc's purge deletes files in /boot/grub.
-    if [ "$pkg" = grub-efi-amd64 ]; then
-        dpkg --remove grub-gfxpayload-lists grub-pc || true
-    else
-        dpkg --remove grub-efi-amd64 || true
-    fi
+    local conflicting=(grub-gfxpayload-lists grub-pc)
+    [ "$pkg" = grub-pc ] && conflicting=(grub-efi-amd64)
+    dpkg --remove "${conflicting[@]}" \
+        || dpkg --remove --force-depends "${conflicting[@]}" \
+        || true
     dpkg -i --force-confdef --force-confold "$deb" || log "${pkg} did not install"
     # Never leave a half-configured package behind: every later apt command
     # would stop on it.
@@ -77,6 +83,11 @@ record_bios_disk() {
 }
 
 case "${1:-}" in
+    auto)
+        if [ -d /sys/firmware/efi ]; then install_pkg grub-efi-amd64; else install_pkg grub-pc; fi
+        record_bios_disk
+        log "audit: $(dpkg --audit 2>&1 | tr '\n' ' ')"
+        ;;
     efi)
         # Ubuntu's signed GRUB and shim are part of the image already.
         install_pkg grub-efi-amd64
@@ -88,7 +99,7 @@ case "${1:-}" in
         record_bios_disk
         ;;
     *)
-        echo "usage: $0 efi|bios|record" >&2
+        echo "usage: $0 auto|efi|bios|record" >&2
         exit 64
         ;;
 esac
