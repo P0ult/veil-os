@@ -186,6 +186,62 @@ jobs:
         run: |
           [ -f out/boot-test/summary.md ] && cat out/boot-test/summary.md >> "$GITHUB_STEP_SUMMARY" || true
 
+      - name: Split the ISO for the release
+        if: startsWith(github.ref, 'refs/tags/os-v')
+        shell: bash
+        run: |
+          set -e
+          cd out
+          iso="$(ls *.iso)"
+          mkdir -p release
+          # Pieces well under GitHub's two-gigabyte limit for one file: a
+          # nearly-full upload is the part that fails.
+          split -b 900M -d -a 2 "$iso" "release/$iso.part"
+          sha256sum "$iso" > "release/$iso.sha256"
+          parts="$(cd release && ls *.part* | sort | tr '\n' ' ')"
+          cat > release/join.sh <<EOF
+          #!/bin/sh
+          # Put the Veil OS ISO back together and check it.
+          set -e
+          cat $iso.part* > $iso
+          sha256sum -c $iso.sha256
+          EOF
+          cat > release/join.cmd <<EOF
+          @echo off
+          rem Put the Veil OS ISO back together and check it.
+          copy /b $(echo "$parts" | sed 's/ *$//; s/ /"+"/g; s/^/"/; s/$/"/') "$iso"
+          certutil -hashfile "$iso" SHA256
+          type "$iso.sha256"
+          EOF
+          chmod +x release/join.sh
+          ls -la release
+
+      # The release is made first and its files uploaded one at a time: a
+      # single upload of gigabytes is the thing most likely to fail, and a
+      # retry then costs one file rather than all of them.
+      - name: Draft release
+        if: startsWith(github.ref, 'refs/tags/os-v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          tag="$GITHUB_REF_NAME"
+          {
+            gh release view "$tag" > /dev/null 2>&1 \
+              || gh release create "$tag" --draft --title "Veil OS ${tag#os-v}" \
+                   --notes-file out/boot-test/summary.md
+            for f in out/release/*; do
+              for try in 1 2 3; do
+                echo "uploading $(basename "$f") ($(du -h "$f" | cut -f1)), try $try"
+                if gh release upload "$tag" "$f" --clobber; then break; fi
+                [ "$try" = 3 ] && { echo "giving up on $f"; exit 1; }
+                sleep 30
+              done
+            done
+            gh release view "$tag" --json isDraft,assets
+          } 2>&1 | tee release.log
+
       # A job's log can only be read by someone signed in with access to the
       # repository; annotations can be read by anyone. The end of each log,
       # as annotations, is what a failed build is diagnosed from.
@@ -193,7 +249,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          for f in build.log boot-tools.log boot-test.log out/boot-test/uefi/serial.log; do
+          for f in build.log boot-tools.log boot-test.log release.log out/boot-test/uefi/serial.log; do
             [ -f "$f" ] || continue
             sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r//g' "$f" | tail -n 60 | cut -c1-160 \
               | python3 -c '
@@ -221,7 +277,7 @@ jobs:
             sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r//g' build.log | tail -n 6000 > "$dir/run/build.log"
             grep -n -i -E 'error|fail|unable|not found|cannot|!!' "$dir/run/build.log" | tail -n 300 > "$dir/run/build-errors.txt" || true
           fi
-          for f in boot-tools.log boot-test.log; do
+          for f in boot-tools.log boot-test.log release.log; do
             if [ -f "$f" ]; then sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$f" > "$dir/run/$f"; fi
           done
           if [ -d out/boot-test ]; then
@@ -246,36 +302,3 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Split the ISO for the release
-        if: startsWith(github.ref, 'refs/tags/os-v')
-        run: |
-          set -e
-          cd out
-          iso="$(ls *.iso)"
-          mkdir release
-          split -b 1900M -d -a 1 "$iso" "release/$iso.part"
-          sha256sum "$iso" > "release/$iso.sha256"
-          cat > release/join.sh <<EOF
-          #!/bin/sh
-          # Put the Veil OS ISO back together and check it.
-          set -e
-          cat $iso.part* > $iso
-          sha256sum -c $iso.sha256
-          EOF
-          cat > release/join.cmd <<EOF
-          @echo off
-          rem Put the Veil OS ISO back together and check it.
-          copy /b $(ls release | grep part | sed 's/^/"/; s/$/"/' | paste -sd+ -) "$iso"
-          certutil -hashfile "$iso" SHA256
-          type "$iso.sha256"
-          EOF
-          chmod +x release/join.sh
-          ls -la release
-
-      - name: Draft release
-        if: startsWith(github.ref, 'refs/tags/os-v')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "$GITHUB_REF_NAME" --draft --title "Veil OS ${GITHUB_REF_NAME#os-v}" \
-            --notes-file out/boot-test/summary.md out/release/*
