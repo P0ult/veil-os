@@ -47,7 +47,8 @@ check blur-my-shell    test -d /usr/share/gnome-shell/extensions/blur-my-shell@a
 check theme-colloid    test -d /usr/share/themes/Colloid-Green-Dark
 check no-snapd         sh -c "! dpkg -l snapd 2>/dev/null | grep -q '^ii'"
 check os-release       grep -q '^ID=veil' /etc/os-release
-check apt-template     python3 -c "from aptsources.distro import get_distro; get_distro()"
+check apt-template     python3 -c "from aptsources.distro import get_distro; from aptsources.sourceslist import SourcesList; SourcesList(); get_distro()"
+check add-apt-repo     add-apt-repository --help
 check apparmor-apps    sh -c "grep -q veil-center /sys/kernel/security/apparmor/profiles && ls /etc/apparmor.d | grep -qi veil"
 
 # Extensions actually enabled for the live user, as the shell sees them.

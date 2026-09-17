@@ -54,7 +54,19 @@ templates=/usr/share/python-apt/templates
 if [ -f "$templates/Ubuntu.info" ]; then
     cp "$templates/Ubuntu.info" "$templates/Veil.info"
     [ -f "$templates/Ubuntu.mirrors" ] && cp "$templates/Ubuntu.mirrors" "$templates/Veil.mirrors"
-    python3 -c "from aptsources.distro import get_distro; d = get_distro(); print('    -> python-apt sees', d.id, d.codename)"
+    # The template's release list is filled in from distro-info's table for
+    # the distribution of the same name, lower-cased; Veil's releases are
+    # Ubuntu's.
+    ln -sf ubuntu.csv /usr/share/distro-info/veil.csv
+    [ -f /usr/share/distro-info/veil.csv ] || { echo "distro-info has no ubuntu.csv" >&2; exit 1; }
+    # SourcesList is what add-apt-repository builds first, and it reads every
+    # template; get_distro alone does not.
+    python3 -c "
+from aptsources.distro import get_distro
+from aptsources.sourceslist import SourcesList
+SourcesList()
+d = get_distro()
+print('    -> python-apt sees', d.id, d.codename)"
 else
     echo "python-apt templates not found at $templates" >&2
     exit 1
