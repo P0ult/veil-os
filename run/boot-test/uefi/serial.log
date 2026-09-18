@@ -1,0 +1,81 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI QEMU DVD-ROM QM00013 " from PciRoot(0x0)/Pci(0x5,0x0)/Sata(0x0,0xFFFF,0x0)
+BdsDxe: starting Boot0001 "UEFI QEMU DVD-ROM QM00013 " from PciRoot(0x0)/Pci(0x5,0x0)/Sata(0x0,0xFFFF,0x0)
+VEIL-REPORT stage=graphical-target
+VEIL-REPORT mode=1 live=yes user=veil
+VEIL-REPORT os=Veil OS 1.0
+VEIL-REPORT kernel=7.0.0-31-generic
+VEIL-REPORT secureboot=SecureBoot enabled
+VEIL-REPORT cmdline=BOOT_IMAGE=/casper/vmlinuz boot=casper quiet splash ---
+VEIL-REPORT stage=desktop seconds=2
+VEIL-REPORT session=[DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority XDG_CURRENT_DESKTOP=GNOME XDG_SESSION_TYPE=x11]
+VEIL-REPORT check plymouth-theme=ok
+VEIL-REPORT check wine=ok
+VEIL-REPORT check winetricks=ok
+VEIL-REPORT check steam=ok
+VEIL-REPORT check lutris=ok
+VEIL-REPORT check libreoffice=ok
+VEIL-REPORT check vlc=ok
+VEIL-REPORT check veil-browser=ok
+VEIL-REPORT check veil-store=ok
+VEIL-REPORT check veil-appearance=ok
+VEIL-REPORT check flathub=ok
+VEIL-REPORT check i386-arch=ok
+VEIL-REPORT check vulkan-i386=ok
+VEIL-REPORT check mesa-kisak=ok
+VEIL-REPORT check dash-to-panel=ok
+VEIL-REPORT check arcmenu=ok
+VEIL-REPORT check blur-my-shell=ok
+VEIL-REPORT check theme-colloid=ok
+VEIL-REPORT check no-snapd=ok
+VEIL-REPORT check os-release=ok
+VEIL-REPORT check apt-template=ok
+VEIL-REPORT check add-apt-repo=ok
+VEIL-REPORT check apparmor-apps=ok
+VEIL-REPORT check owners=ok
+VEIL-REPORT check dpkg-clean=ok
+VEIL-REPORT apparmor service=inactive loaded=95 veil=[veil-center (unconfined);veil-browser (unconfined);] restrict_userns=1
+VEIL-REPORT check calamares=ok
+VEIL-REPORT check bootloader-debs=ok
+VEIL-REPORT preload=inactive veil-live-preload.service: Consumed 20.478s CPU time.
+VEIL-REPORT check browser-icon=ok
+VEIL-REPORT enabled-extensions=['dash-to-panel@jderose9.github.com', 'arcmenu@arcmenu.com', 'blur-my-shell@aunetx', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'ubuntu-appindicators@ubuntu.com', 'ding@rastersoft.com']
+VEIL-REPORT gtk-theme='Colloid-Green-Dark'
+VEIL-REPORT extension dash-to-panel@jderose9.github.com state=1.0
+VEIL-REPORT extension arcmenu@arcmenu.com state=1.0
+VEIL-REPORT extension blur-my-shell@aunetx state=1.0
+VEIL-REPORT extension user-theme@gnome-shell-extensions.gcampax.github.com state=1.0
+VEIL-REPORT extension ubuntu-appindicators@ubuntu.com state=1.0
+VEIL-REPORT extension ding@rastersoft.com state=1.0
+VEIL-REPORT memory=5882MB total, 4616MB available
+VEIL-REPORT reread-binary=1s
+VEIL-REPORT stage=apps
+VEIL-REPORT window store: veil-store on screen after 32s
+VEIL-REPORT   store | [veil-center store] starting 44.2.0 --store
+VEIL-REPORT   store | [veil-center store] window created
+VEIL-REPORT   store | libva error: /usr/lib/x86_64-linux-gnu/dri/virtio_gpu_drv_video.so init failed
+VEIL-REPORT   store | [3116:0918/003947.076612:ERROR:media/gpu/vaapi/vaapi_wrapper.cc:1801] vaInitialize failed: resource allocation failed
+VEIL-REPORT   store | [veil-center store] showing window: timeout
+VEIL-REPORT   store | [veil-center store] page loaded
+VEIL-REPORT check store-starts=ok
+VEIL-REPORT window appearance: veil-appearance on screen after 2s
+VEIL-REPORT   appearance | [3433:0918/004045.805860:ERROR:content/common/zygote/zygote_communication_linux.cc:291] Failed to send GetTerminationStatus message to zygote
+VEIL-REPORT   appearance | [3433:0918/004045.808597:ERROR:content/common/zygote/zygote_communication_linux.cc:291] Failed to send GetTerminationStatus message to zygote
+VEIL-REPORT   appearance | [3433:0918/004045.810596:ERROR:content/browser/network_service_instance_impl.cc:650] Network service crashed or was terminated, restarting service.
+VEIL-REPORT   appearance | [3433:0918/004045.818780:ERROR:content/browser/gpu/gpu_process_host.cc:1029] GPU process launch failed: error_code=1002
+VEIL-REPORT   appearance | [3433:0918/004045.820304:ERROR:content/browser/gpu/gpu_process_host.cc:1029] GPU process launch failed: error_code=1002
+VEIL-REPORT   appearance | [3433:0918/004045.820925:ERROR:content/browser/gpu/gpu_process_host.cc:1029] GPU process launch failed: error_code=1002
+VEIL-REPORT   appearance | [3433:0918/004045.820943:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.
+VEIL-REPORT   appearance | timeout: the monitored command dumped core
+VEIL-REPORT check appearance-starts=ok
+VEIL-REPORT window browser: veil on screen after 8s
+VEIL-REPORT   browser |   Manifest version 2 is deprecated, and support will be removed in 2025. See https://developer.chrome.com/docs/extensions/develop/migrate/mv2-deprecation-timeline for details.
+VEIL-REPORT   browser |   Permission 'contextMenus' is unknown or URL pattern is malformed.
+VEIL-REPORT   browser |   Permission 'privacy' is unknown or URL pattern is malformed.
+VEIL-REPORT   browser |   Permission 'webNavigation' is unknown or URL pattern is malformed.
+VEIL-REPORT   browser | 
+VEIL-REPORT   browser | (Use `veil-browser --trace-warnings ...` to show where the warning was created)
+VEIL-REPORT   browser | [ubo] uBlock Origin 1.74.0 loaded
+VEIL-REPORT   browser | [adblock] refreshed 6/7 lists, 120434 rules
+VEIL-REPORT check browser-starts=ok
+VEIL-REPORT shell: Error looking up permission: GDBus.Error:org.freedesktop.portal.Error.NotFound: No entry for geolocation
+VEIL-REPORT done
